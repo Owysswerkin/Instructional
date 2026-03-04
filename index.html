@@ -1,10 +1,170 @@
 <!DOCTYPE html>
-<html>
-  <head>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NextLabs Academy</title>
+    <!-- Load React and Tailwind -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700;800&display=swap');
+        body { font-family: 'Open Sans', sans-serif; }
+    </style>
+</head>
+<body>
     <div id="root"></div>
-  </body>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // Simple Icon Component to bridge Lucide for CDN usage
+        const Icon = ({ name, size = 16, className = "" }) => {
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [name]);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const INITIAL_COURSES = [
+            {
+                id: "zero-trust-foundations",
+                title: "Zero Trust Data-Centric Security",
+                tagline: "Protect data anytime and anywhere with NextLabs",
+                description: "Learn how NextLabs provides zero trust data-centric security software and services to protect data across applications, databases, and files.",
+                duration: "2 hours",
+                thumbnail: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800",
+                sections: [
+                    {
+                        title: "Introduction",
+                        lessons: [
+                            { id: "zt-1", title: "The NextLabs Vision", content: "# The NextLabs Vision\nProtecting data anytime and anywhere.\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+                            { id: "zt-2", title: "Dynamic Authorization", content: "# Technology Overview\nOur patented dynamic authorization technology and industry leading attribute-based zero trust policy platform." }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        function App() {
+            const [view, setView] = useState('landing');
+            const [courses, setCourses] = useState(() => {
+                const saved = localStorage.getItem('nl_courses');
+                return saved ? JSON.parse(saved) : INITIAL_COURSES;
+            });
+            const [selectedCourse, setSelectedCourse] = useState(null);
+            const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('lms_user')));
+            const [completedLessons, setCompletedLessons] = useState(() => JSON.parse(localStorage.getItem('lms_progress')) || []);
+            const [activeLessonId, setActiveLessonId] = useState(null);
+
+            const handleLogin = (email) => {
+                const newUser = { email, role: 'admin', name: email.split('@')[0] };
+                setUser(newUser);
+                localStorage.setItem('lms_user', JSON.stringify(newUser));
+                setView('landing');
+            };
+
+            const handleLogout = () => {
+                setUser(null);
+                localStorage.removeItem('lms_user');
+                setView('landing');
+            };
+
+            return (
+                <div className="min-h-screen bg-white text-[#414042] antialiased">
+                    <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-white border-b-2 border-slate-100">
+                        <button onClick={() => setView('landing')} className="flex items-center gap-2">
+                            <div className="bg-[#004990] text-white px-2 py-1 font-bold text-xs">NEXTLABS</div>
+                            <span className="font-bold tracking-tight text-lg text-[#004990]">ACADEMY</span>
+                        </button>
+                        <div className="flex items-center gap-4">
+                            {user ? (
+                                <button onClick={handleLogout} className="text-xs font-bold uppercase flex items-center gap-1"><Icon name="log-out" size={14} /> Logout</button>
+                            ) : (
+                                <button onClick={() => setView('login')} className="bg-[#004990] text-white px-4 py-2 text-xs font-bold uppercase">Login</button>
+                            )}
+                        </div>
+                    </header>
+
+                    <main>
+                        {view === 'landing' && <LandingPage courses={courses} onSelect={(c) => { setSelectedCourse(c); setView('details'); }} />}
+                        {view === 'details' && <CourseDetails course={selectedCourse} user={user} onStart={() => { if(!user) return setView('login'); setActiveLessonId(selectedCourse.sections[0]?.lessons[0]?.id); setView('viewer'); }} onBack={() => setView('landing')} />}
+                        {view === 'login' && <LoginPage onLogin={handleLogin} />}
+                        {view === 'viewer' && <CourseViewer courseData={selectedCourse} activeLessonId={activeLessonId} setActiveLessonId={setActiveLessonId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} />}
+                    </main>
+                </div>
+            );
+        }
+
+        function LandingPage({ courses, onSelect }) {
+            return (
+                <div className="max-w-6xl mx-auto px-6 py-12">
+                    <h1 className="text-4xl font-extrabold text-[#004990] mb-2">Training Catalog</h1>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                        {courses.map(course => (
+                            <div key={course.id} onClick={() => onSelect(course)} className="border p-4 cursor-pointer hover:shadow-lg transition-all">
+                                <img src={course.thumbnail} className="w-full h-40 object-cover mb-4" />
+                                <h3 className="font-bold text-[#004990]">{course.title}</h3>
+                                <p className="text-sm text-gray-500 mt-2">{course.tagline}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function CourseDetails({ course, onStart, onBack }) {
+            return (
+                <div className="max-w-4xl mx-auto p-12">
+                    <button onClick={onBack} className="text-[#004990] text-sm mb-4 font-bold uppercase tracking-widest flex items-center gap-1"><Icon name="chevron-left" /> Back</button>
+                    <h1 className="text-4xl font-black text-[#004990] mb-4">{course.title}</h1>
+                    <p className="text-lg text-gray-600 mb-8">{course.description}</p>
+                    <button onClick={onStart} className="bg-[#F47920] text-white px-8 py-4 font-bold uppercase tracking-widest shadow-lg">Launch Training</button>
+                </div>
+            );
+        }
+
+        function LoginPage({ onLogin }) {
+            const [email, setEmail] = useState('');
+            return (
+                <div className="flex justify-center items-center h-[60vh]">
+                    <form className="border p-10 w-80" onSubmit={(e) => { e.preventDefault(); onLogin(email); }}>
+                        <h2 className="font-bold mb-4">Email Login</h2>
+                        <input className="border w-full p-2 mb-4" type="email" placeholder="work@nextlabs.com" onChange={e => setEmail(e.target.value)} />
+                        <button className="bg-[#004990] text-white w-full py-2">Continue</button>
+                    </form>
+                </div>
+            );
+        }
+
+        function CourseViewer({ courseData, activeLessonId, setActiveLessonId }) {
+            const allLessons = courseData.sections.flatMap(s => s.lessons);
+            const activeLesson = allLessons.find(l => l.id === activeLessonId);
+            return (
+                <div className="flex h-[calc(100vh-60px)]">
+                    <div className="w-64 bg-slate-50 border-r p-6">
+                        {allLessons.map(l => (
+                            <button key={l.id} onClick={() => setActiveLessonId(l.id)} className={`block w-full text-left p-2 mb-1 text-sm ${l.id === activeLessonId ? 'bg-[#004990] text-white font-bold' : ''}`}>
+                                {l.title}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex-1 p-12 overflow-y-auto">
+                        <h1 className="text-3xl font-bold mb-6">{activeLesson?.title}</h1>
+                        <p className="whitespace-pre-wrap">{activeLesson?.content}</p>
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
 </html>
