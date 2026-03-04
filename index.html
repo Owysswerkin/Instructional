@@ -14,6 +14,17 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700;800&display=swap');
         body { font-family: 'Open Sans', sans-serif; }
+        .prose h1 { font-size: 1.875rem; font-weight: 800; color: #004990; margin-top: 2rem; margin-bottom: 1rem; }
+        .prose h2 { font-size: 1.5rem; font-weight: 700; color: #414042; margin-top: 1.5rem; margin-bottom: 0.75rem; border-left: 4px solid #F47920; padding-left: 1rem; }
+        .prose p { margin-bottom: 1rem; line-height: 1.6; color: #4b5563; }
+        .prose img { border-radius: 0.5rem; margin: 1.5rem 0; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        .video-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; margin: 1.5rem 0; border: 2px solid #004990; }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        /* Custom scrollbar for editor */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #004990; }
     </style>
 </head>
 <body>
@@ -22,7 +33,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        // Simple Icon Component to bridge Lucide for CDN usage
         const Icon = ({ name, size = 16, className = "" }) => {
             useEffect(() => {
                 if (window.lucide) {
@@ -42,10 +52,10 @@
                 thumbnail: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800",
                 sections: [
                     {
-                        title: "Introduction",
+                        title: "Core Concepts",
                         lessons: [
-                            { id: "zt-1", title: "The NextLabs Vision", content: "# The NextLabs Vision\nProtecting data anytime and anywhere.\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ" },
-                            { id: "zt-2", title: "Dynamic Authorization", content: "# Technology Overview\nOur patented dynamic authorization technology and industry leading attribute-based zero trust policy platform." }
+                            { id: "zt-1", title: "The NextLabs Vision", content: "# The NextLabs Vision\nProtecting data anytime and anywhere.\n\n![Secure Data](https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=800)\n\nOur goal is to automate the enforcement of security controls.\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+                            { id: "zt-2", title: "Dynamic Authorization", content: "## Technology Overview\nOur patented dynamic authorization technology and industry leading attribute-based zero trust policy platform." }
                         ]
                     }
                 ]
@@ -63,6 +73,10 @@
             const [completedLessons, setCompletedLessons] = useState(() => JSON.parse(localStorage.getItem('lms_progress')) || []);
             const [activeLessonId, setActiveLessonId] = useState(null);
 
+            useEffect(() => {
+                localStorage.setItem('nl_courses', JSON.stringify(courses));
+            }, [courses]);
+
             const handleLogin = (email) => {
                 const newUser = { email, role: 'admin', name: email.split('@')[0] };
                 setUser(newUser);
@@ -76,6 +90,13 @@
                 setView('landing');
             };
 
+            const handleSaveCourse = (updatedCourse) => {
+                const newCourses = courses.map(c => c.id === updatedCourse.id ? updatedCourse : c);
+                setCourses(newCourses);
+                setSelectedCourse(updatedCourse);
+                setView('details');
+            };
+
             return (
                 <div className="min-h-screen bg-white text-[#414042] antialiased">
                     <header className="sticky top-0 z-50 flex items-center justify-between px-6 py-3 bg-white border-b-2 border-slate-100">
@@ -85,18 +106,54 @@
                         </button>
                         <div className="flex items-center gap-4">
                             {user ? (
-                                <button onClick={handleLogout} className="text-xs font-bold uppercase flex items-center gap-1"><Icon name="log-out" size={14} /> Logout</button>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Admin Mode</span>
+                                    <button onClick={handleLogout} className="text-xs font-bold uppercase flex items-center gap-1 hover:text-[#F47920] transition-colors">
+                                        <Icon name="log-out" size={14} /> Logout
+                                    </button>
+                                </div>
                             ) : (
-                                <button onClick={() => setView('login')} className="bg-[#004990] text-white px-4 py-2 text-xs font-bold uppercase">Login</button>
+                                <button onClick={() => setView('login')} className="bg-[#004990] text-white px-4 py-2 text-xs font-bold uppercase tracking-widest hover:bg-[#F47920] transition-colors">Login</button>
                             )}
                         </div>
                     </header>
 
                     <main>
                         {view === 'landing' && <LandingPage courses={courses} onSelect={(c) => { setSelectedCourse(c); setView('details'); }} />}
-                        {view === 'details' && <CourseDetails course={selectedCourse} user={user} onStart={() => { if(!user) return setView('login'); setActiveLessonId(selectedCourse.sections[0]?.lessons[0]?.id); setView('viewer'); }} onBack={() => setView('landing')} />}
+                        {view === 'details' && (
+                            <CourseDetails 
+                                course={selectedCourse} 
+                                user={user} 
+                                onStart={() => { 
+                                    if(!user) return setView('login'); 
+                                    setActiveLessonId(selectedCourse.sections[0]?.lessons[0]?.id); 
+                                    setView('viewer'); 
+                                }} 
+                                onEdit={() => setView('editor')}
+                                onBack={() => setView('landing')} 
+                            />
+                        )}
                         {view === 'login' && <LoginPage onLogin={handleLogin} />}
-                        {view === 'viewer' && <CourseViewer courseData={selectedCourse} activeLessonId={activeLessonId} setActiveLessonId={setActiveLessonId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} />}
+                        {view === 'viewer' && (
+                            <CourseViewer 
+                                courseData={selectedCourse} 
+                                activeLessonId={activeLessonId} 
+                                setActiveLessonId={setActiveLessonId} 
+                                completedLessons={completedLessons} 
+                                setCompletedLessons={(val) => {
+                                    setCompletedLessons(val);
+                                    localStorage.setItem('lms_progress', JSON.stringify(val));
+                                }}
+                                onExit={() => setView('details')}
+                            />
+                        )}
+                        {view === 'editor' && (
+                            <CourseEditor 
+                                course={selectedCourse} 
+                                onSave={handleSaveCourse} 
+                                onCancel={() => setView('details')} 
+                            />
+                        )}
                     </main>
                 </div>
             );
@@ -105,13 +162,20 @@
         function LandingPage({ courses, onSelect }) {
             return (
                 <div className="max-w-6xl mx-auto px-6 py-12">
-                    <h1 className="text-4xl font-extrabold text-[#004990] mb-2">Training Catalog</h1>
-                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                    <h1 className="text-4xl font-extrabold text-[#004990] mb-2 uppercase tracking-tight">Training Catalog</h1>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] mb-10">Zero Trust Data-Centric Security Curriculum</p>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-0 border-t border-l border-slate-200">
                         {courses.map(course => (
-                            <div key={course.id} onClick={() => onSelect(course)} className="border p-4 cursor-pointer hover:shadow-lg transition-all">
-                                <img src={course.thumbnail} className="w-full h-40 object-cover mb-4" />
-                                <h3 className="font-bold text-[#004990]">{course.title}</h3>
-                                <p className="text-sm text-gray-500 mt-2">{course.tagline}</p>
+                            <div key={course.id} onClick={() => onSelect(course)} className="group border-r border-b border-slate-200 p-8 cursor-pointer hover:bg-slate-50 transition-all flex flex-col">
+                                <div className="aspect-video mb-6 bg-slate-100 overflow-hidden border border-slate-200">
+                                    <img src={course.thumbnail} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" />
+                                </div>
+                                <h3 className="font-bold text-xl text-[#004990] group-hover:text-[#F47920] transition-colors">{course.title}</h3>
+                                <p className="text-sm text-gray-500 mt-2 line-clamp-2">{course.tagline}</p>
+                                <div className="mt-8 flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-slate-300">
+                                    <span>{course.duration}</span>
+                                    <Icon name="arrow-right" className="text-[#004990]" />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -119,13 +183,47 @@
             );
         }
 
-        function CourseDetails({ course, onStart, onBack }) {
+        function CourseDetails({ course, onStart, onEdit, onBack, user }) {
             return (
-                <div className="max-w-4xl mx-auto p-12">
-                    <button onClick={onBack} className="text-[#004990] text-sm mb-4 font-bold uppercase tracking-widest flex items-center gap-1"><Icon name="chevron-left" /> Back</button>
-                    <h1 className="text-4xl font-black text-[#004990] mb-4">{course.title}</h1>
-                    <p className="text-lg text-gray-600 mb-8">{course.description}</p>
-                    <button onClick={onStart} className="bg-[#F47920] text-white px-8 py-4 font-bold uppercase tracking-widest shadow-lg">Launch Training</button>
+                <div className="max-w-6xl mx-auto p-12">
+                    <button onClick={onBack} className="text-[#004990] text-[10px] mb-8 font-bold uppercase tracking-[0.2em] flex items-center gap-2 hover:translate-x-[-4px] transition-transform">
+                        <Icon name="chevron-left" size={14} /> Back to Catalog
+                    </button>
+                    <div className="flex flex-col lg:flex-row gap-16">
+                        <div className="flex-1">
+                            <h1 className="text-5xl font-black text-[#004990] mb-6 leading-tight uppercase">{course.title}</h1>
+                            <p className="text-xl text-gray-600 mb-10 border-l-8 border-[#F47920] pl-8 leading-relaxed italic">{course.description}</p>
+                            <div className="flex gap-4">
+                                <button onClick={onStart} className="bg-[#004990] text-white px-10 py-5 font-bold uppercase tracking-widest text-sm hover:bg-[#F47920] transition-all shadow-xl">Launch Module</button>
+                                {user?.role === 'admin' && (
+                                    <button onClick={onEdit} className="border-2 border-[#004990] text-[#004990] px-10 py-5 font-bold uppercase tracking-widest text-sm hover:bg-slate-50 transition-all">Edit Curriculum</button>
+                                )}
+                            </div>
+                        </div>
+                        <div className="w-full lg:w-80 shrink-0">
+                            <div className="bg-slate-50 border border-slate-200 p-8 rounded-sm">
+                                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Course Syllabus</h4>
+                                <div className="space-y-6">
+                                    {course.sections.map((sec, i) => (
+                                        <div key={i} className="space-y-2">
+                                            <div className="flex items-start gap-3">
+                                                <Icon name="folder" className="text-[#F47920] shrink-0" size={16} />
+                                                <span className="text-[11px] font-black uppercase tracking-wider text-[#004990]">{sec.title}</span>
+                                            </div>
+                                            <div className="ml-7 space-y-1">
+                                                {sec.lessons.map(lesson => (
+                                                    <div key={lesson.id} className="text-xs text-slate-500 font-medium flex items-center gap-2">
+                                                        <div className="w-1 h-1 bg-slate-300 rounded-full" />
+                                                        {lesson.title}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             );
         }
@@ -133,31 +231,235 @@
         function LoginPage({ onLogin }) {
             const [email, setEmail] = useState('');
             return (
-                <div className="flex justify-center items-center h-[60vh]">
-                    <form className="border p-10 w-80" onSubmit={(e) => { e.preventDefault(); onLogin(email); }}>
-                        <h2 className="font-bold mb-4">Email Login</h2>
-                        <input className="border w-full p-2 mb-4" type="email" placeholder="work@nextlabs.com" onChange={e => setEmail(e.target.value)} />
-                        <button className="bg-[#004990] text-white w-full py-2">Continue</button>
+                <div className="flex justify-center items-center h-[70vh]">
+                    <form className="border-2 border-[#004990] p-12 w-full max-w-md shadow-2xl" onSubmit={(e) => { e.preventDefault(); onLogin(email); }}>
+                        <div className="bg-[#004990] text-white inline-block px-3 py-1 text-[10px] font-bold uppercase mb-6">Authentication Required</div>
+                        <h2 className="text-3xl font-black mb-8 text-[#414042]">Portal Access</h2>
+                        <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Corporate Email Address</label>
+                        <input className="border-2 border-slate-100 w-full p-4 mb-8 outline-none focus:border-[#F47920] font-bold" type="email" placeholder="name@nextlabs.com" required onChange={e => setEmail(e.target.value)} />
+                        <button className="bg-[#004990] text-white w-full py-5 font-bold uppercase tracking-[0.2em] hover:bg-[#F47920] transition-colors">Verify Identity</button>
                     </form>
                 </div>
             );
         }
 
-        function CourseViewer({ courseData, activeLessonId, setActiveLessonId }) {
+        function ContentRenderer({ content }) {
+            const extractYTId = (url) => {
+                const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
+                const match = url.match(regExp);
+                return (match && match[7].length === 11) ? match[7] : null;
+            };
+
+            const lines = content.split('\n');
+            return (
+                <div className="prose max-w-none">
+                    {lines.map((line, i) => {
+                        const trimmed = line.trim();
+                        if (trimmed.startsWith('# ')) return <h1 key={i}>{trimmed.replace('# ', '')}</h1>;
+                        if (trimmed.startsWith('## ')) return <h2 key={i}>{trimmed.replace('## ', '')}</h2>;
+                        const imgMatch = trimmed.match(/!\[(.*?)\]\((.*?)\)/);
+                        if (imgMatch) return <img key={i} src={imgMatch[2]} alt={imgMatch[1]} className="w-full" />;
+                        const ytId = extractYTId(trimmed);
+                        if (ytId) return (
+                            <div key={i} className="video-container">
+                                <iframe src={`https://www.youtube.com/embed/${ytId}`} frameBorder="0" allowFullScreen></iframe>
+                            </div>
+                        );
+                        return trimmed === "" ? <br key={i} /> : <p key={i}>{trimmed}</p>;
+                    })}
+                </div>
+            );
+        }
+
+        function CourseViewer({ courseData, activeLessonId, setActiveLessonId, completedLessons, setCompletedLessons, onExit }) {
             const allLessons = courseData.sections.flatMap(s => s.lessons);
             const activeLesson = allLessons.find(l => l.id === activeLessonId);
+
             return (
                 <div className="flex h-[calc(100vh-60px)]">
-                    <div className="w-64 bg-slate-50 border-r p-6">
-                        {allLessons.map(l => (
-                            <button key={l.id} onClick={() => setActiveLessonId(l.id)} className={`block w-full text-left p-2 mb-1 text-sm ${l.id === activeLessonId ? 'bg-[#004990] text-white font-bold' : ''}`}>
-                                {l.title}
-                            </button>
+                    <div className="w-80 bg-slate-50 border-r p-8 overflow-y-auto">
+                        <button onClick={onExit} className="mb-8 text-[10px] font-black uppercase text-slate-400 hover:text-[#004990] flex items-center gap-2">
+                            <Icon name="x" size={14} /> Exit Course
+                        </button>
+                        <h4 className="text-[10px] font-black text-[#F47920] uppercase tracking-widest mb-6">Course Modules</h4>
+                        {courseData.sections.map((sec, sIdx) => (
+                            <div key={sIdx} className="mb-8">
+                                <p className="text-[10px] font-black uppercase text-slate-300 mb-4">{sec.title}</p>
+                                <div className="space-y-2">
+                                    {sec.lessons.map(l => (
+                                        <button 
+                                            key={l.id} 
+                                            onClick={() => setActiveLessonId(l.id)} 
+                                            className={`flex items-center gap-3 w-full text-left p-3 text-xs font-bold transition-all border-l-4 ${l.id === activeLessonId ? 'bg-[#004990] text-white border-[#F47920]' : 'bg-white border-transparent text-slate-500 hover:bg-slate-100'}`}
+                                        >
+                                            <Icon name={completedLessons.includes(l.id) ? "check-circle" : "circle"} size={14} />
+                                            <span className="truncate">{l.title}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         ))}
                     </div>
-                    <div className="flex-1 p-12 overflow-y-auto">
-                        <h1 className="text-3xl font-bold mb-6">{activeLesson?.title}</h1>
-                        <p className="whitespace-pre-wrap">{activeLesson?.content}</p>
+                    <div className="flex-1 bg-white p-16 overflow-y-auto">
+                        <div className="max-w-3xl mx-auto pb-20">
+                            {activeLesson && (
+                                <>
+                                    <ContentRenderer content={activeLesson.content} />
+                                    <div className="mt-20 pt-8 border-t flex justify-between items-center">
+                                        <button 
+                                            onClick={() => {
+                                                const isCompleted = completedLessons.includes(activeLesson.id);
+                                                setCompletedLessons(isCompleted ? completedLessons.filter(id => id !== activeLesson.id) : [...completedLessons, activeLesson.id]);
+                                            }}
+                                            className={`px-8 py-3 text-xs font-black uppercase tracking-widest border-2 transition-all ${completedLessons.includes(activeLesson.id) ? 'bg-green-500 border-green-500 text-white' : 'border-[#004990] text-[#004990] hover:bg-slate-50'}`}
+                                        >
+                                            {completedLessons.includes(activeLesson.id) ? "Verified Complete" : "Mark as Complete"}
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function CourseEditor({ course, onSave, onCancel }) {
+            const [data, setData] = useState(JSON.parse(JSON.stringify(course)));
+            const [editId, setEditId] = useState(data.sections[0]?.lessons[0]?.id || null);
+
+            const activeLesson = data.sections.flatMap(s => s.lessons).find(l => l.id === editId);
+
+            const updateLesson = (id, field, value) => {
+                const newData = {...data};
+                newData.sections.forEach(s => {
+                    s.lessons = s.lessons.map(l => l.id === id ? {...l, [field]: value} : l);
+                });
+                setData(newData);
+            };
+
+            const addSection = () => {
+                const newData = {...data};
+                newData.sections.push({
+                    title: "New Section",
+                    lessons: []
+                });
+                setData(newData);
+            };
+
+            const addLesson = (sectionIndex) => {
+                const newData = {...data};
+                const newId = `lesson-${Date.now()}`;
+                const newLesson = { id: newId, title: "New Lesson", content: "# New Lesson\nStart editing here..." };
+                newData.sections[sectionIndex].lessons.push(newLesson);
+                setData(newData);
+                setEditId(newId);
+            };
+
+            const removeSection = (index) => {
+                const newData = {...data};
+                newData.sections.splice(index, 1);
+                setData(newData);
+            };
+
+            const removeLesson = (secIdx, lessonIdx) => {
+                const newData = {...data};
+                const lessonIdToRemove = newData.sections[secIdx].lessons[lessonIdx].id;
+                newData.sections[secIdx].lessons.splice(lessonIdx, 1);
+                setData(newData);
+                if (editId === lessonIdToRemove) {
+                    setEditId(null);
+                }
+            };
+
+            return (
+                <div className="h-[calc(100vh-60px)] flex flex-col bg-slate-100">
+                    <div className="bg-white border-b px-8 py-4 flex justify-between items-center">
+                        <h2 className="font-black text-[#004990] uppercase tracking-widest">Curriculum Architect: {course.title}</h2>
+                        <div className="flex gap-4">
+                            <button onClick={onCancel} className="text-xs font-bold uppercase text-slate-400">Cancel</button>
+                            <button onClick={() => onSave(data)} className="bg-[#004990] text-white px-6 py-2 text-xs font-bold uppercase tracking-widest hover:bg-[#F47920]">Publish Updates</button>
+                        </div>
+                    </div>
+                    <div className="flex flex-1 overflow-hidden">
+                        <div className="w-80 border-r bg-white overflow-y-auto p-6 flex flex-col">
+                            <div className="flex justify-between items-center mb-6">
+                                <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Syllabus Structure</h4>
+                                <button onClick={addSection} className="text-[#004990] hover:text-[#F47920] transition-colors">
+                                    <Icon name="plus-circle" size={18} />
+                                </button>
+                            </div>
+                            
+                            {data.sections.map((sec, sIdx) => (
+                                <div key={sIdx} className="mb-8 border-b border-slate-50 pb-4 last:border-0">
+                                    <div className="flex items-center group mb-3">
+                                        <input 
+                                            className="text-[11px] font-black text-[#F47920] uppercase bg-transparent flex-1 outline-none border-b border-transparent focus:border-slate-200 py-1"
+                                            value={sec.title}
+                                            onChange={e => {
+                                                const next = {...data};
+                                                next.sections[sIdx].title = e.target.value;
+                                                setData(next);
+                                            }}
+                                        />
+                                        <button onClick={() => removeSection(sIdx)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-1">
+                                            <Icon name="trash-2" size={12} />
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="space-y-1 mb-3">
+                                        {sec.lessons.map((l, lIdx) => (
+                                            <div key={l.id} className="flex items-center group">
+                                                <button 
+                                                    onClick={() => setEditId(l.id)}
+                                                    className={`flex-1 text-left p-2 text-xs font-bold rounded-sm transition-all ${l.id === editId ? 'bg-[#004990] text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                                                >
+                                                    {l.title}
+                                                </button>
+                                                <button onClick={() => removeLesson(sIdx, lIdx)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 p-1">
+                                                    <Icon name="x" size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <button onClick={() => addLesson(sIdx)} className="text-[10px] font-bold text-[#004990] flex items-center gap-1 hover:text-[#F47920] uppercase tracking-tighter">
+                                        <Icon name="plus" size={12} /> Add Module
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="flex-1 flex bg-white">
+                            {activeLesson ? (
+                                <>
+                                    <div className="w-1/2 flex flex-col border-r">
+                                        <div className="bg-slate-50 px-6 py-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b">Markdown Canvas</div>
+                                        <input 
+                                            className="p-6 text-xl font-bold border-b outline-none text-[#004990] placeholder-slate-200"
+                                            value={activeLesson.title}
+                                            placeholder="Module Title..."
+                                            onChange={e => updateLesson(editId, 'title', e.target.value)}
+                                        />
+                                        <textarea 
+                                            className="flex-1 p-8 outline-none font-mono text-sm leading-relaxed resize-none"
+                                            value={activeLesson.content}
+                                            placeholder="Craft your lesson content using Markdown..."
+                                            onChange={e => updateLesson(editId, 'content', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="w-1/2 overflow-y-auto bg-slate-50">
+                                        <div className="bg-slate-100 px-6 py-2 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] border-b">Module Preview</div>
+                                        <div className="p-12">
+                                            <ContentRenderer content={activeLesson.content} />
+                                        </div>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className="flex-1 flex items-center justify-center text-slate-300 font-bold uppercase tracking-widest text-sm italic bg-slate-50">
+                                    Select or add a module to begin architecting content
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             );
