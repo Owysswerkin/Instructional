@@ -4,7 +4,7 @@ const FILE  = 'courses.json';
 const API   = 'https://api.github.com';
 
 const headers = () => ({
-  'Authorization': `token ${process.env.GITHUB_TOKEN}`,
+  'Authorization': `token ${process.env.COURSES_TOKEN}`,
   'Accept': 'application/vnd.github.v3+json',
   'Content-Type': 'application/json',
   'User-Agent': 'NextLabs-Academy',
