@@ -279,9 +279,7 @@
                       return (
                         <div key={l.id} style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid #F8FAFC' }}>
                           {done
-                            ? <span style={{ width: 18, height: 18, background: '#22C55E', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <Icon name="check" size={10} />
-                              </span>
+                            ? <span style={{ width: 18, height: 18, background: '#22C55E', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 11, fontWeight: 900, lineHeight: 1 }}>✓</span>
                             : <span style={{ width: 18, height: 18, border: '2px solid #CBD5E1', borderRadius: '50%', flexShrink: 0, display: 'inline-block' }} />
                           }
                           <span style={{ fontSize: 14, fontWeight: 600, color: done ? '#94A3B8' : '#334155', fontStyle: done ? 'italic' : 'normal' }}>{l.title}</span>
@@ -363,8 +361,9 @@
                       <span style={{ width: 14, height: 14, borderRadius: '50%', flexShrink: 0, marginTop: 1,
                         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         background: done ? '#22C55E' : 'transparent',
-                        border: done ? 'none' : `2px solid ${isActive ? 'rgba(255,255,255,0.4)' : '#CBD5E1'}` }}>
-                        {done && <Icon name="check" size={8} />}
+                        border: done ? 'none' : `2px solid ${isActive ? 'rgba(255,255,255,0.4)' : '#CBD5E1'}`,
+                        color: '#fff', fontSize: 9, fontWeight: 900, lineHeight: 1 }}>
+                        {done && '✓'}
                       </span>
                       <span style={{ lineHeight: 1.3 }}>{l.title}</span>
                     </button>
