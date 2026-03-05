@@ -561,11 +561,19 @@
     // ─────────────────────────────────────────────────────────────────────────
     function App() {
       const [view, setView]       = useState('landing');
-      const [courses, setCourses] = useState(SEED);
+      const [courses, setCourses] = useState(() => {
+        try { const s = localStorage.getItem('nl_courses'); return s ? JSON.parse(s) : SEED; } catch { return SEED; }
+      });
       const [courseId, setCourseId] = useState(null);
       const [user, setUser]       = useState(null);
       const [completed, setCompleted] = useState(new Set());
       const [lessonId, setLessonId]   = useState(null);
+      const [syncMsg, setSyncMsg]     = useState('');
+
+      // Auto-save to localStorage whenever courses change
+      useEffect(() => {
+        try { localStorage.setItem('nl_courses', JSON.stringify(courses)); } catch(e) {}
+      }, [courses]);
 
       const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
 
@@ -603,8 +611,61 @@
         setView('editor');
       }, []);
 
+      // ── Export: download all courses as a .json file ───────────────────────
+      const exportCourses = useCallback(() => {
+        const blob = new Blob([JSON.stringify(courses, null, 2)], { type: 'application/json' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `nextlabs-courses-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        flash('✓ Downloaded! Save to OneDrive or SharePoint.');
+      }, [courses]);
+
+      // ── Import: load courses from a .json file ─────────────────────────────
+      const importCourses = useCallback(() => {
+        const input = document.createElement('input');
+        input.type  = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            try {
+              const data = JSON.parse(ev.target.result);
+              if (!Array.isArray(data)) throw new Error('Invalid format');
+              setCourses(data);
+              setView('landing');
+              flash('✓ Courses loaded successfully!');
+            } catch {
+              flash('✗ Invalid file. Please upload a NextLabs courses .json file.');
+            }
+          };
+          reader.readAsText(file);
+        };
+        input.click();
+      }, []);
+
+      const flash = (msg) => {
+        setSyncMsg(msg);
+        setTimeout(() => setSyncMsg(''), 3500);
+      };
+
       return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#fff', fontFamily: "'DM Sans', sans-serif" }}>
+
+          {/* ── Toast notification ── */}
+          {syncMsg && (
+            <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 999,
+              background: syncMsg.startsWith('✓') ? '#0F4C2A' : '#7F1D1D',
+              color: '#fff', padding: '12px 24px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.2)', whiteSpace: 'nowrap' }}>
+              {syncMsg}
+            </div>
+          )}
+
           {/* ── Header ── */}
           <header style={{ height: 64, background: '#fff', borderBottom: '1px solid #E2E8F0', display: 'flex',
             alignItems: 'center', justifyContent: 'space-between', padding: '0 24px',
@@ -619,15 +680,37 @@
                 color: T.navy, fontFamily: "'Barlow Condensed', sans-serif" }}>NextLabs / Academy</span>
             </button>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              {user && user.role === 'admin' && (
+                <>
+                  {/* Save to file */}
+                  <button onClick={exportCourses} title="Download courses as JSON — save to OneDrive / SharePoint"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 900,
+                      letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate,
+                      background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 6,
+                      padding: '6px 12px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+                    <Icon name="download" size={12} /> Save File
+                  </button>
+
+                  {/* Load from file */}
+                  <button onClick={importCourses} title="Load courses from a previously saved JSON file"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 900,
+                      letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate,
+                      background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 6,
+                      padding: '6px 12px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+                    <Icon name="upload" size={12} /> Load File
+                  </button>
+
+                  <div style={{ width: 1, height: 20, background: '#E2E8F0' }} />
+
+                  <button onClick={newCourse} style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em',
+                    textTransform: 'uppercase', color: T.navy, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+                    + New Course
+                  </button>
+                </>
+              )}
               {user ? (
                 <>
-                  {user.role === 'admin' && (
-                    <button onClick={newCourse} style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em',
-                      textTransform: 'uppercase', color: T.navy, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-                      + New Course
-                    </button>
-                  )}
                   <span style={{ fontSize: 13, fontWeight: 700, color: T.slate }}>{user.name}</span>
                   <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', alignItems: 'center' }}>
                     <Icon name="log-out" size={16} />
