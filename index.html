@@ -522,34 +522,133 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  LOGIN
+    //  LOGIN — passwordless OTP flow
     // ─────────────────────────────────────────────────────────────────────────
     function Login({ onLogin }) {
-      const [email, setEmail] = useState('');
+      const [step, setStep]     = useState('email'); // 'email' | 'code'
+      const [email, setEmail]   = useState('');
+      const [code, setCode]     = useState('');
+      const [loading, setLoading] = useState(false);
+      const [error, setError]   = useState('');
+      const [resendTimer, setResendTimer] = useState(0);
+      const codeRef = useRef(null);
+
+      useEffect(() => {
+        if (resendTimer > 0) {
+          const t = setTimeout(() => setResendTimer(r => r - 1), 1000);
+          return () => clearTimeout(t);
+        }
+      }, [resendTimer]);
+
+      const requestCode = async () => {
+        if (!email || !email.includes('@')) return setError('Please enter a valid email address.');
+        setLoading(true); setError('');
+        try {
+          const r = await fetch('/.netlify/functions/send-code', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim().toLowerCase() }),
+          });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error || 'Failed to send code');
+          setStep('code');
+          setResendTimer(60);
+          setTimeout(() => codeRef.current?.focus(), 100);
+        } catch(e) { setError(e.message); }
+        finally { setLoading(false); }
+      };
+
+      const verifyCode = async () => {
+        if (code.length !== 6) return setError('Please enter the 6-digit code.');
+        setLoading(true); setError('');
+        try {
+          const r = await fetch('/.netlify/functions/verify-code', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.trim().toLowerCase(), code }),
+          });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j.error || 'Verification failed');
+          onLogin(j.user);
+        } catch(e) { setError(e.message); setCode(''); }
+        finally { setLoading(false); }
+      };
+
+      const inputStyle = {
+        width: '100%', padding: '13px 15px', border: '1.5px solid #E2E8F0', borderRadius: 8,
+        fontSize: 15, outline: 'none', color: '#1E293B', background: '#F8FAFC',
+        fontFamily: "'DM Sans', sans-serif", transition: 'border-color 0.2s',
+      };
+
       return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 64px)', padding: 24, background: '#F8FAFC' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
+          minHeight: 'calc(100vh - 64px)', padding: 24, background: '#F8FAFC' }}>
           <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 14,
-            padding: 'clamp(28px, 5vw, 48px)', width: '100%', maxWidth: 400, boxShadow: '0 20px 60px rgba(0,58,122,0.08)' }}>
-            <div style={{ width: 46, height: 46, background: T.navy, borderRadius: 10, display: 'inline-flex',
-              alignItems: 'center', justifyContent: 'center', marginBottom: 22, boxShadow: '0 8px 20px rgba(0,58,122,0.25)' }}>
+            padding: 'clamp(28px, 5vw, 48px)', width: '100%', maxWidth: 400,
+            boxShadow: '0 20px 60px rgba(0,58,122,0.08)' }}>
+
+            <div style={{ width: 46, height: 46, background: T.navy, borderRadius: 10,
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              marginBottom: 22, boxShadow: '0 8px 20px rgba(0,58,122,0.25)' }}>
               <Icon name="shield-check" size={22} />
             </div>
             <h2 style={{ fontSize: 22, fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif",
-              letterSpacing: '-0.01em', color: T.navy, marginBottom: 4 }}>Access Portal</h2>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 28 }}>
-              NextLabs Central Authentication
+              letterSpacing: '-0.01em', color: T.navy, marginBottom: 4 }}>
+              {step === 'email' ? 'Access Portal' : 'Check Your Email'}
+            </h2>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase',
+              color: '#94A3B8', marginBottom: 28 }}>
+              {step === 'email' ? 'Functional Academy' : `Code sent to ${email}`}
             </p>
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.15em',
-                textTransform: 'uppercase', color: T.slate, marginBottom: 8 }}>Corporate Email</label>
-              <input type="email" placeholder="user@nextlabs.com" value={email} onChange={e => setEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && email && onLogin(email)}
-                style={{ width: '100%', padding: '13px 15px', border: '1.5px solid #E2E8F0', borderRadius: 8,
-                  fontSize: 15, outline: 'none', color: '#1E293B', background: '#F8FAFC', fontFamily: "'DM Sans', sans-serif" }} />
-            </div>
-            <Btn block onClick={() => email && onLogin(email)}>Verify Identity</Btn>
-            <p style={{ marginTop: 24, fontSize: 9, textAlign: 'center', color: '#CBD5E1', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              Secured by Dynamic Authorization Platform
+
+            {step === 'email' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.15em',
+                    textTransform: 'uppercase', color: T.slate, marginBottom: 8 }}>Your Email</label>
+                  <input type="email" placeholder="you@example.com" value={email}
+                    onChange={e => { setEmail(e.target.value); setError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && requestCode()}
+                    style={inputStyle} autoFocus />
+                </div>
+                {error && <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>{error}</p>}
+                <Btn block onClick={requestCode} extraStyle={{ opacity: loading ? 0.7 : 1 }}>
+                  {loading ? 'Sending…' : 'Send Login Code'}
+                </Btn>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.15em',
+                    textTransform: 'uppercase', color: T.slate, marginBottom: 8 }}>6-Digit Code</label>
+                  <input ref={codeRef} type="text" inputMode="numeric" maxLength={6}
+                    placeholder="000000" value={code}
+                    onChange={e => { setCode(e.target.value.replace(/\D/g,'')); setError(''); }}
+                    onKeyDown={e => e.key === 'Enter' && verifyCode()}
+                    style={{ ...inputStyle, fontSize: 28, fontWeight: 900, letterSpacing: '0.3em',
+                      textAlign: 'center', fontFamily: "'Barlow Condensed', sans-serif" }} />
+                </div>
+                {error && <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>{error}</p>}
+                <Btn block onClick={verifyCode} extraStyle={{ opacity: loading ? 0.7 : 1 }}>
+                  {loading ? 'Verifying…' : 'Sign In'}
+                </Btn>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button onClick={() => { setStep('email'); setCode(''); setError(''); }}
+                    style={{ fontSize: 12, color: T.slate, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+                    ← Change email
+                  </button>
+                  <button onClick={resendTimer > 0 ? null : requestCode}
+                    disabled={resendTimer > 0}
+                    style={{ fontSize: 12, color: resendTimer > 0 ? '#94A3B8' : T.orange, background: 'none',
+                      border: 'none', cursor: resendTimer > 0 ? 'default' : 'pointer',
+                      fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
+                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend code'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <p style={{ marginTop: 24, fontSize: 9, textAlign: 'center', color: '#CBD5E1',
+              fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              No password required · One-time code only
             </p>
           </div>
         </div>
@@ -557,28 +656,251 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    //  USER MANAGEMENT PAGE
+    // ─────────────────────────────────────────────────────────────────────────
+    function UserManagement({ currentUser, onBack }) {
+      const [users, setUsers]       = useState([]);
+      const [loading, setLoading]   = useState(true);
+      const [saving, setSaving]     = useState(false);
+      const [newEmail, setNewEmail] = useState('');
+      const [newName, setNewName]   = useState('');
+      const [newRole, setNewRole]   = useState('user');
+      const [msg, setMsg]           = useState('');
+      const [error, setError]       = useState('');
+
+      useEffect(() => {
+        fetch('/.netlify/functions/users')
+          .then(r => r.json())
+          .then(j => { setUsers(j.users || []); setLoading(false); })
+          .catch(() => setLoading(false));
+      }, []);
+
+      const saveUsers = async (list) => {
+        setSaving(true);
+        try {
+          const r = await fetch('/.netlify/functions/users', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ users: list }),
+          });
+          if (!r.ok) throw new Error('Save failed');
+          setMsg('✓ Users saved successfully');
+          setTimeout(() => setMsg(''), 3000);
+        } catch(e) { setError(e.message); }
+        finally { setSaving(false); }
+      };
+
+      const addUser = () => {
+        if (!newEmail.includes('@')) return setError('Please enter a valid email.');
+        if (users.some(u => u.email.toLowerCase() === newEmail.toLowerCase()))
+          return setError('That email is already registered.');
+        const u = { email: newEmail.trim().toLowerCase(), name: newName.trim() || newEmail.split('@')[0], role: newRole };
+        const next = [...users, u];
+        setUsers(next);
+        saveUsers(next);
+        setNewEmail(''); setNewName(''); setNewRole('user'); setError('');
+      };
+
+      const removeUser = (email) => {
+        if (email === 'rustin.neo@gmail.com') return setError("Cannot remove the primary admin account.");
+        if (email === currentUser.email) return setError("You cannot remove your own account.");
+        const next = users.filter(u => u.email !== email);
+        setUsers(next);
+        saveUsers(next);
+      };
+
+      const toggleRole = (email) => {
+        if (email === 'rustin.neo@gmail.com') return setError("Cannot change the primary admin role.");
+        const next = users.map(u => u.email === email ? { ...u, role: u.role === 'admin' ? 'user' : 'admin' } : u);
+        setUsers(next);
+        saveUsers(next);
+      };
+
+      const inputStyle = {
+        padding: '10px 14px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13,
+        outline: 'none', fontFamily: "'DM Sans', sans-serif", color: '#1E293B', background: '#fff',
+      };
+
+      return (
+        <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 24px' }}>
+          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10,
+            fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate,
+            background: 'none', border: 'none', cursor: 'pointer', marginBottom: 36 }}>
+            <Icon name="arrow-left" size={13} /> Back
+          </button>
+
+          <div style={{ marginBottom: 36 }}>
+            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.25em', textTransform: 'uppercase', color: T.orange, marginBottom: 6 }}>Admin</p>
+            <h1 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif",
+              letterSpacing: '-0.02em', color: '#0F172A', marginBottom: 4 }}>User Management</h1>
+            <p style={{ fontSize: 14, color: T.slate }}>Add users and manage their access permissions.</p>
+          </div>
+
+          {/* Add user form */}
+          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24, marginBottom: 32 }}>
+            <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: T.navy, marginBottom: 16 }}>Add New User</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 10, alignItems: 'end' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: T.slate, marginBottom: 6 }}>Email *</label>
+                <input type="email" placeholder="user@company.com" value={newEmail}
+                  onChange={e => { setNewEmail(e.target.value); setError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && addUser()}
+                  style={{ ...inputStyle, width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: T.slate, marginBottom: 6 }}>Name (optional)</label>
+                <input type="text" placeholder="Display name" value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  style={{ ...inputStyle, width: '100%' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: T.slate, marginBottom: 6 }}>Role</label>
+                <select value={newRole} onChange={e => setNewRole(e.target.value)}
+                  style={{ ...inputStyle, cursor: 'pointer' }}>
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <Btn onClick={addUser} extraStyle={{ whiteSpace: 'nowrap', marginBottom: 1 }}>+ Add User</Btn>
+            </div>
+            {error && <p style={{ marginTop: 10, fontSize: 12, color: '#DC2626', fontWeight: 600 }}>{error}</p>}
+            {msg   && <p style={{ marginTop: 10, fontSize: 12, color: '#16A34A', fontWeight: 600 }}>{msg}</p>}
+          </div>
+
+          {/* User list */}
+          <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 20px', background: '#F8FAFC', display: 'grid',
+              gridTemplateColumns: '1fr 1fr auto auto', gap: 12,
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#94A3B8' }}>
+              <span>Email</span><span>Name</span><span style={{ textAlign: 'center' }}>Role</span><span></span>
+            </div>
+
+            {loading ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Loading users…</div>
+            ) : users.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>No users yet.</div>
+            ) : users.map(u => {
+              const isPrimary = u.email === 'rustin.neo@gmail.com';
+              const isSelf    = u.email === currentUser.email;
+              return (
+                <div key={u.email} style={{ padding: '14px 20px', display: 'grid',
+                  gridTemplateColumns: '1fr 1fr auto auto', gap: 12, alignItems: 'center',
+                  borderTop: '1px solid #F1F5F9', background: isSelf ? '#FAFEFF' : '#fff' }}>
+                  <div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{u.email}</span>
+                    {isSelf && <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 800, color: T.orange,
+                      background: '#FFF3E8', border: '1px solid #FDDBB4', borderRadius: 4, padding: '1px 6px' }}>You</span>}
+                    {isPrimary && <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 800, color: T.navy,
+                      background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 4, padding: '1px 6px' }}>Primary</span>}
+                  </div>
+                  <span style={{ fontSize: 13, color: T.slate }}>{u.name || '—'}</span>
+                  <button onClick={() => !isPrimary && toggleRole(u.email)}
+                    style={{ padding: '4px 12px', borderRadius: 20, fontSize: 10, fontWeight: 800,
+                      letterSpacing: '0.08em', textTransform: 'uppercase', border: 'none',
+                      cursor: isPrimary ? 'default' : 'pointer',
+                      background: u.role === 'admin' ? '#003A7A' : '#F1F5F9',
+                      color: u.role === 'admin' ? '#fff' : '#64748B',
+                      transition: 'all 0.2s' }}>
+                    {u.role === 'admin' ? '⚙ Admin' : '👤 User'}
+                  </button>
+                  <button onClick={() => removeUser(u.email)}
+                    disabled={isPrimary || isSelf}
+                    style={{ width: 30, height: 30, borderRadius: 6, border: 'none',
+                      background: (isPrimary || isSelf) ? 'transparent' : '#FEF2F2',
+                      color: (isPrimary || isSelf) ? '#CBD5E1' : '#EF4444',
+                      cursor: (isPrimary || isSelf) ? 'default' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 16, fontWeight: 700 }}>
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {saving && (
+            <p style={{ marginTop: 16, fontSize: 12, color: T.slate, fontWeight: 600, textAlign: 'center' }}>
+              Saving…
+            </p>
+          )}
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  SECURE API — calls Netlify function → stores in Netlify Blobs DB
+    // ─────────────────────────────────────────────────────────────────────────
+    const FN = '/.netlify/functions/courses';
+
+    async function dbLoad() {
+      const r = await fetch(FN);
+      if (!r.ok) throw new Error('Could not load courses');
+      const j = await r.json();
+      return j.courses;
+    }
+
+    async function dbSave(courses) {
+      const r = await fetch(FN, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courses }),
+      });
+      if (!r.ok) throw new Error('Could not save courses');
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  ROOT APP
     // ─────────────────────────────────────────────────────────────────────────
     function App() {
-      const [view, setView]       = useState('landing');
-      const [courses, setCourses] = useState(() => {
-        try { const s = localStorage.getItem('nl_courses'); return s ? JSON.parse(s) : SEED; } catch { return SEED; }
-      });
+      const [view, setView]         = useState('landing');
+      const [courses, setCourses]   = useState(SEED);
       const [courseId, setCourseId] = useState(null);
-      const [user, setUser]       = useState(null);
+      const [user, setUser]         = useState(null);
       const [completed, setCompleted] = useState(new Set());
       const [lessonId, setLessonId]   = useState(null);
       const [syncMsg, setSyncMsg]     = useState('');
+      const [syncing, setSyncing]     = useState(false);
+      const [loading, setLoading]     = useState(true);
 
-      // Auto-save to localStorage whenever courses change
+      const flash = useCallback((msg) => {
+        setSyncMsg(msg);
+        setTimeout(() => setSyncMsg(''), 4000);
+      }, []);
+
+      // ── Load courses from DB on startup ────────────────────────────────────
       useEffect(() => {
-        try { localStorage.setItem('nl_courses', JSON.stringify(courses)); } catch(e) {}
-      }, [courses]);
+        (async () => {
+          try {
+            const data = await dbLoad();
+            if (data && Array.isArray(data)) setCourses(data);
+          } catch(e) {
+            console.warn('Could not load from DB, using defaults', e);
+          } finally {
+            setLoading(false);
+          }
+        })();
+      }, []);
+
+      // ── Save to Netlify DB ─────────────────────────────────────────────────
+      const syncToDB = useCallback(async (latestCourses) => {
+        setSyncing(true);
+        try {
+          await dbSave(latestCourses);
+          flash('✓ Saved to database — live on your site!');
+        } catch(e) {
+          flash('✗ Save failed. Check your connection and try again.');
+        } finally {
+          setSyncing(false);
+        }
+      }, [flash]);
 
       const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
 
-      const login  = useCallback((email) => {
-        setUser({ email, name: email.split('@')[0], role: 'admin' });
+      // ── Login receives full user object from verify-code function ──────────
+      const login  = useCallback((userObj) => {
+        setUser(userObj);
         setView('landing');
       }, []);
 
@@ -593,10 +915,14 @@
       }, [user, course, completed]);
 
       const saveCourse = useCallback((updated) => {
-        setCourses(prev => prev.map(c => c.id === updated.id ? updated : c));
+        setCourses(prev => {
+          const next = prev.map(c => c.id === updated.id ? updated : c);
+          syncToDB(next);
+          return next;
+        });
         setCourseId(updated.id);
         setView('details');
-      }, []);
+      }, [syncToDB]);
 
       const newCourse = useCallback(() => {
         const id = `course-${Date.now()}`;
@@ -611,52 +937,18 @@
         setView('editor');
       }, []);
 
-      // ── Export: download all courses as a .json file ───────────────────────
-      const exportCourses = useCallback(() => {
-        const blob = new Blob([JSON.stringify(courses, null, 2)], { type: 'application/json' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
-        a.download = `nextlabs-courses-${new Date().toISOString().slice(0,10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        flash('✓ Downloaded! Save to OneDrive or SharePoint.');
-      }, [courses]);
-
-      // ── Import: load courses from a .json file ─────────────────────────────
-      const importCourses = useCallback(() => {
-        const input = document.createElement('input');
-        input.type  = 'file';
-        input.accept = '.json';
-        input.onchange = (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = (ev) => {
-            try {
-              const data = JSON.parse(ev.target.result);
-              if (!Array.isArray(data)) throw new Error('Invalid format');
-              setCourses(data);
-              setView('landing');
-              flash('✓ Courses loaded successfully!');
-            } catch {
-              flash('✗ Invalid file. Please upload a NextLabs courses .json file.');
-            }
-          };
-          reader.readAsText(file);
-        };
-        input.click();
-      }, []);
-
-      const flash = (msg) => {
-        setSyncMsg(msg);
-        setTimeout(() => setSyncMsg(''), 3500);
-      };
+      if (loading) return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: 16, background: '#F8FAFC' }}>
+          <div style={{ width: 40, height: 40, border: `3px solid #E2E8F0`, borderTop: `3px solid ${T.navy}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: T.slate }}>Loading courses…</p>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      );
 
       return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#fff', fontFamily: "'DM Sans', sans-serif" }}>
 
-          {/* ── Toast notification ── */}
+          {/* ── Toast ── */}
           {syncMsg && (
             <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 999,
               background: syncMsg.startsWith('✓') ? '#0F4C2A' : '#7F1D1D',
@@ -677,41 +969,60 @@
                 <Icon name="layout" size={16} />
               </div>
               <span style={{ fontWeight: 900, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: T.navy, fontFamily: "'Barlow Condensed', sans-serif" }}>NextLabs / Academy</span>
+                color: T.navy, fontFamily: "'Barlow Condensed', sans-serif" }}>Functional / Academy</span>
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+
+              {syncing && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 800,
+                  letterSpacing: '0.15em', textTransform: 'uppercase', color: T.orange }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.orange, animation: 'pulse 1s infinite' }} />
+                  Saving…
+                  <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                </div>
+              )}
+
               {user && user.role === 'admin' && (
                 <>
-                  {/* Save to file */}
-                  <button onClick={exportCourses} title="Download courses as JSON — save to OneDrive / SharePoint"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 900,
-                      letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate,
-                      background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 6,
-                      padding: '6px 12px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-                    <Icon name="download" size={12} /> Save File
-                  </button>
-
-                  {/* Load from file */}
-                  <button onClick={importCourses} title="Load courses from a previously saved JSON file"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 900,
-                      letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate,
-                      background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 6,
-                      padding: '6px 12px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-                    <Icon name="upload" size={12} /> Load File
-                  </button>
-
-                  <div style={{ width: 1, height: 20, background: '#E2E8F0' }} />
-
                   <button onClick={newCourse} style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em',
-                    textTransform: 'uppercase', color: T.navy, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+                    textTransform: 'uppercase', color: T.navy, background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: "'DM Sans', sans-serif" }}>
                     + New Course
                   </button>
+                  <button onClick={() => setView('users')} style={{ display: 'flex', alignItems: 'center', gap: 5,
+                    fontSize: 9, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase',
+                    color: view === 'users' ? T.orange : T.slate, background: 'none', border: 'none',
+                    cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+                    <Icon name="users" size={13} /> Users
+                  </button>
+                  <button onClick={() => syncToDB(courses)} disabled={syncing}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 900,
+                      letterSpacing: '0.15em', textTransform: 'uppercase', color: '#fff',
+                      background: T.navy, border: 'none', borderRadius: 6, padding: '7px 14px',
+                      cursor: syncing ? 'not-allowed' : 'pointer', opacity: syncing ? 0.6 : 1,
+                      fontFamily: "'DM Sans', sans-serif" }}>
+                    <Icon name="cloud" size={12} /> Sync
+                  </button>
+                  <div style={{ width: 1, height: 20, background: '#E2E8F0' }} />
                 </>
               )}
+
               {user ? (
                 <>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: T.slate }}>{user.name}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: T.navy,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+                      {(user.name || user.email)[0].toUpperCase()}
+                    </div>
+                    <div style={{ lineHeight: 1.2 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>{user.name || user.email.split('@')[0]}</div>
+                      {user.role === 'admin' && (
+                        <div style={{ fontSize: 9, fontWeight: 800, color: T.orange, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Admin</div>
+                      )}
+                    </div>
+                  </div>
                   <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', alignItems: 'center' }}>
                     <Icon name="log-out" size={16} />
                   </button>
@@ -736,6 +1047,9 @@
             )}
             {view === 'editor' && course && (
               <Editor course={course} onSave={saveCourse} onCancel={() => setView('details')} />
+            )}
+            {view === 'users' && user?.role === 'admin' && (
+              <UserManagement currentUser={user} onBack={() => setView('landing')} />
             )}
           </main>
         </div>
