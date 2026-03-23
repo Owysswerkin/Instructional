@@ -544,7 +544,7 @@
         if (!email || !email.includes('@')) return setError('Please enter a valid email address.');
         setLoading(true); setError('');
         try {
-          const r = await fetch('/.netlify/functions/send-code', {
+          const r = await fetch('/api/send-code', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: email.trim().toLowerCase() }),
           });
@@ -561,7 +561,7 @@
         if (code.length !== 6) return setError('Please enter the 6-digit code.');
         setLoading(true); setError('');
         try {
-          const r = await fetch('/.netlify/functions/verify-code', {
+          const r = await fetch('/api/verify-code', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: email.trim().toLowerCase(), code }),
           });
@@ -669,7 +669,7 @@
       const [error, setError]       = useState('');
 
       useEffect(() => {
-        fetch('/.netlify/functions/users')
+        fetch('/api/users')
           .then(r => r.json())
           .then(j => { setUsers(j.users || []); setLoading(false); })
           .catch(() => setLoading(false));
@@ -678,7 +678,7 @@
       const saveUsers = async (list) => {
         setSaving(true);
         try {
-          const r = await fetch('/.netlify/functions/users', {
+          const r = await fetch('/api/users', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ users: list }),
           });
@@ -832,7 +832,7 @@
     // ─────────────────────────────────────────────────────────────────────────
     //  SECURE API — calls Netlify function → stores in Netlify Blobs DB
     // ─────────────────────────────────────────────────────────────────────────
-    const FN = '/.netlify/functions/courses';
+    const FN = '/api/courses';
 
     async function dbLoad() {
       const r = await fetch(FN);
