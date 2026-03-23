@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { dbGet, dbSetex } from './_db.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -20,21 +20,23 @@ export default async function handler(req, res) {
     if (!email || !email.includes('@')) throw new Error('Invalid email address');
 
     // Check user is registered
-    const users = await kv.get('users') || DEFAULT_USERS;
+    const users = await dbGet('users') || DEFAULT_USERS;
     const user = users.find(u => u.email.toLowerCase() === email);
     if (!user) {
-      return res.status(403).json({ error: 'This email is not registered. Please contact your administrator.' });
+      return res.status(403).json({
+        error: 'This email is not registered. Please contact your administrator.',
+      });
     }
 
-    // Generate 6-digit OTP, expires 10 min
+    // Generate 6-digit code, store for 10 minutes (600 seconds)
     const code = String(Math.floor(100000 + Math.random() * 900000));
-    await kv.setex(`otp:${email}`, 600, code);
+    await dbSetex(`otp:${email}`, 600, code);
 
     // Send via Resend
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -43,25 +45,28 @@ export default async function handler(req, res) {
         subject: 'Your login code — Functional Academy',
         html: `
           <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:40px 24px;">
-            <div style="background:#003A7A;width:48px;height:48px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:24px;">
+            <div style="background:#003A7A;width:48px;height:48px;border-radius:10px;display:inline-block;text-align:center;line-height:48px;margin-bottom:24px;">
               <span style="color:#fff;font-size:22px;">🔐</span>
             </div>
             <h1 style="font-size:24px;font-weight:900;color:#003A7A;margin:0 0 8px;">Your login code</h1>
             <p style="font-size:15px;color:#64748B;margin:0 0 32px;">
-              Use this code to sign in to <strong>Functional Academy</strong>. It expires in <strong>10 minutes</strong>.
+              Use this code to sign in to <strong>Functional Academy</strong>.
+              It expires in <strong>10 minutes</strong>.
             </p>
             <div style="background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:28px;text-align:center;margin-bottom:32px;">
               <span style="font-size:48px;font-weight:900;letter-spacing:12px;color:#003A7A;">${code}</span>
             </div>
-            <p style="font-size:13px;color:#94A3B8;">If you didn't request this, you can safely ignore this email.</p>
+            <p style="font-size:13px;color:#94A3B8;">
+              If you didn't request this, you can safely ignore this email.
+            </p>
           </div>
         `,
       }),
     });
 
     if (!resendRes.ok) {
-      const err = await resendRes.text();
-      console.error('Resend error:', err);
+      const errText = await resendRes.text();
+      console.error('Resend error:', errText);
       throw new Error('Failed to send email. Please try again.');
     }
 
