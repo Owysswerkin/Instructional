@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { dbGet, dbSet } from './_db.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -14,10 +14,9 @@ export default async function handler(req, res) {
   Object.entries(cors).forEach(([k, v]) => res.setHeader(k, v));
   if (req.method === 'OPTIONS') return res.status(204).end();
 
-  // GET — load users
   if (req.method === 'GET') {
     try {
-      const users = await kv.get('users');
+      const users = await dbGet('users');
       return res.status(200).json({ users: users || DEFAULT_USERS });
     } catch (e) {
       console.error('users GET:', e.message);
@@ -25,15 +24,13 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST — save users
   if (req.method === 'POST') {
     try {
       let { users } = req.body;
       if (!Array.isArray(users)) throw new Error('Expected array');
-      // Always keep primary admin
       const hasPrimary = users.some(u => u.email.toLowerCase() === 'rustin.neo@gmail.com');
       if (!hasPrimary) users = [DEFAULT_USERS[0], ...users];
-      await kv.set('users', users);
+      await dbSet('users', users);
       return res.status(200).json({ ok: true });
     } catch (e) {
       console.error('users POST:', e.message);
