@@ -1,4 +1,4 @@
-import { kv } from '@vercel/kv';
+import { dbGet, dbDel } from './_db.js';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -18,24 +18,24 @@ export default async function handler(req, res) {
   try {
     const email = (req.body?.email || '').toLowerCase().trim();
     const code  = (req.body?.code  || '').trim();
-    if (!email || !code) throw new Error('Email and code required');
+    if (!email || !code) throw new Error('Email and code are required');
 
-    // Get stored OTP
-    const stored = await kv.get(`otp:${email}`);
+    // Fetch stored OTP
+    const stored = await dbGet(`otp:${email}`);
     if (!stored) {
       return res.status(400).json({ error: 'No code found. Please request a new one.' });
     }
 
-    // Check match (kv.setex stores as string)
+    // Compare
     if (String(stored) !== String(code)) {
       return res.status(400).json({ error: 'Incorrect code. Please try again.' });
     }
 
-    // Valid — delete immediately (one-time use)
-    await kv.del(`otp:${email}`);
+    // Valid — delete immediately
+    await dbDel(`otp:${email}`);
 
-    // Return user profile
-    const users = await kv.get('users') || DEFAULT_USERS;
+    // Return user
+    const users = await dbGet('users') || DEFAULT_USERS;
     const user = users.find(u => u.email.toLowerCase() === email);
     if (!user) return res.status(403).json({ error: 'User not found.' });
 
