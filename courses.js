@@ -1,4 +1,4 @@
-// netlify/functions/users.js
+// netlify/functions/courses.js
 const { getStore } = require('@netlify/blobs');
 
 const cors = {
@@ -7,15 +7,11 @@ const cors = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-const DEFAULT_USERS = [
-  { email: 'rustin.neo@gmail.com', name: 'Rustin', role: 'admin' },
-];
-
 exports.handler = async (event, context) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: cors, body: '' };
 
   const store = getStore({
-    name: 'users',
+    name: 'courses',
     consistency: 'strong',
     siteID: context.site?.id,
     token: context.token,
@@ -25,19 +21,18 @@ exports.handler = async (event, context) => {
   if (event.httpMethod === 'GET') {
     try {
       const raw = await store.get('all');
-      const users = raw ? JSON.parse(raw) : DEFAULT_USERS;
+      const courses = raw ? JSON.parse(raw) : null;
       return {
         statusCode: 200,
         headers: { ...cors, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ users }),
+        body: JSON.stringify({ courses }),
       };
     } catch (err) {
-      console.error('users GET error:', err.message);
-      // On any error return defaults so UI never breaks
+      console.error('courses GET error:', err.message);
       return {
         statusCode: 200,
         headers: { ...cors, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ users: DEFAULT_USERS }),
+        body: JSON.stringify({ courses: null }),
       };
     }
   }
@@ -48,22 +43,18 @@ exports.handler = async (event, context) => {
       let body;
       try { body = JSON.parse(event.body); } catch(e) { throw new Error('Invalid request body'); }
 
-      let { users } = body;
-      if (!Array.isArray(users)) throw new Error('Invalid data: expected array');
+      const { courses } = body;
+      if (!Array.isArray(courses)) throw new Error('Invalid data: expected array');
 
-      // Always keep primary admin
-      const hasPrimary = users.some(u => u.email.toLowerCase() === 'rustin.neo@gmail.com');
-      if (!hasPrimary) users = [DEFAULT_USERS[0], ...users];
-
-      await store.set('all', JSON.stringify(users));
+      await store.set('all', JSON.stringify(courses));
 
       return {
         statusCode: 200,
         headers: { ...cors, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ok: true }),
+        body: JSON.stringify({ ok: true, saved: courses.length }),
       };
     } catch (err) {
-      console.error('users POST error:', err.message);
+      console.error('courses POST error:', err.message);
       return {
         statusCode: 500,
         headers: { ...cors, 'Content-Type': 'application/json' },
