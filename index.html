@@ -1,1064 +1,284 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NextLabs Academy</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #ffffff; }
+        .editor-input { border: none; background: transparent; outline: none; width: 100%; }
+        textarea::-webkit-scrollbar { width: 4px; }
+        textarea::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .markdown-body { font-size: 0.875rem; line-height: 1.6; color: #334155; }
+        .markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: #0f172a; }
+        .markdown-body h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #1e293b; }
+        .markdown-body p { margin-bottom: 1rem; }
+        .markdown-body code { font-family: 'JetBrains Mono', monospace; background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
+        .markdown-body pre { background: #f8fafc; padding: 1rem; border-radius: 8px; overflow-x: auto; margin-bottom: 1rem; border: 1px solid #f1f5f9; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        
+        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=DM+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-
-  <!-- Lucide icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-
-  <!-- React + ReactDOM (production) -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-
-  <!-- Babel standalone to compile JSX in-browser -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; }
-    body { font-family: 'DM Sans', sans-serif; background: #fff; color: #1E293B; }
-    #root { height: 100%; }
-    ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 99px; }
-    .viewer-sidebar { display: flex; flex-direction: column; height: 100%; }
-    .mobile-bar { display: none !important; }
-    @media (max-width: 768px) {
-      .viewer-sidebar { display: none !important; }
-      .mobile-bar { display: flex !important; }
-      .details-grid { grid-template-columns: 1fr !important; }
-    }
-  </style>
+        .dot { transition: all 0.3s ease-in-out; }
+        input:checked ~ .dot { transform: translateX(100%); background-color: #10b981; }
+        input:checked ~ .block { background-color: #d1fae5; }
+    </style>
 </head>
-<body>
-  <div id="root"></div>
-
-  <script type="text/babel">
-    const { useState, useMemo, useCallback, memo, useEffect, useRef } = React;
-
-    // ── Design tokens ──────────────────────────────────────────────────────────
-    const T = { navy: '#003A7A', orange: '#F47920', slate: '#64748B' };
-
-    // ── Icon ──────────────────────────────────────────────────────────────────
-    const Icon = memo(({ name, size = 16 }) => {
-      const ref = useRef(null);
-      useEffect(() => {
-        const t = setTimeout(() => {
-          if (ref.current && window.lucide) window.lucide.createIcons({ nodes: [ref.current] });
-        }, 0);
-        return () => clearTimeout(t);
-      }, [name]);
-      return (
-        <i ref={ref} data-lucide={name}
-           style={{ width: size, height: size, display: 'inline-block', flexShrink: 0, verticalAlign: 'middle' }} />
-      );
-    });
-
-    // ── Seed courses ──────────────────────────────────────────────────────────
-    const SEED = [
-      {
-        id: 'zt-foundations',
-        title: 'Zero Trust Data-Centric Security Foundations',
-        tagline: 'Core Principles of Data Protection',
-        description: "Master the fundamentals of NextLabs' Zero Trust architecture. Learn how to protect data across applications, databases, and file repositories using dynamic authorization.",
-        duration: '45 min', level: 'Level 1',
-        thumbnail: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=800',
-        sections: [
-          {
-            title: 'Introduction',
-            lessons: [
-              { id: 'zt-l1', title: 'The NextLabs Vision',
-                content: '# The NextLabs Vision\nProtecting data anytime, anywhere.\n\n![Secure](https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&q=80&w=800)\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-              { id: 'zt-l2', title: 'Dynamic Authorization Strategy',
-                content: '## Technology Overview\nOur patented dynamic authorization technology is the industry leader.\n\nIt enables real-time policy enforcement across every data surface.' },
-            ],
-          },
-          {
-            title: 'Core Concepts',
-            lessons: [
-              { id: 'zt-l3', title: 'Policy Decision Points',
-                content: '# Policy Decision Points\nA PDP evaluates access requests against defined policies in real time.' },
-              { id: 'zt-l4', title: 'Attribute-Based Access Control',
-                content: '## ABAC Model\nABAC grants access based on attributes of users, resources, and environment.' },
-            ],
-          },
-        ],
-      },
-      {
-        id: 'cloud-security',
-        title: 'Cloud Data Protection Strategies',
-        tagline: 'Secure Data Across Hybrid Environments',
-        description: 'Deploy enterprise-grade data security policies across AWS, Azure, and GCP using NextLabs CloudAz for consistent, real-time authorization.',
-        duration: '1.2 hr', level: 'Level 2',
-        thumbnail: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc48?auto=format&fit=crop&q=80&w=800',
-        sections: [
-          { title: 'Cloud Architecture', lessons: [
-            { id: 'cl-l1', title: 'Multi-Cloud Topology', content: '# Multi-Cloud Topology\nUnderstanding distributed policy enforcement.' },
-            { id: 'cl-l2', title: 'CloudAz Gateway', content: '## CloudAz Gateway\nThe central policy hub for all cloud workloads.' },
-          ]},
-        ],
-      },
-    ];
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-    const allLessons = (course) => course.sections.flatMap(s => s.lessons);
-
-    const courseProgress = (course, completed) => {
-      const ids = allLessons(course).map(l => l.id);
-      if (!ids.length) return 0;
-      return Math.round(ids.filter(id => completed.has(id)).length / ids.length * 100);
-    };
-
-    // ── Content Renderer ──────────────────────────────────────────────────────
-    const ContentRenderer = memo(({ content }) => {
-      if (!content) return null;
-      const ytId = (url) => {
-        const m = url.match(/(?:v=|youtu\.be\/)([^#&?]{11})/);
-        return m ? m[1] : null;
-      };
-      return (
-        <div style={{ fontFamily: 'Georgia, serif', lineHeight: 1.8 }}>
-          {content.split('\n').map((line, i) => {
-            const t = line.trim();
-            if (!t) return <div key={i} style={{ height: 12 }} />;
-            if (t.startsWith('# '))  return <h1 key={i} style={{ fontSize: 30, fontWeight: 900, marginBottom: 20, color: '#0F172A', fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '-0.02em' }}>{t.slice(2)}</h1>;
-            if (t.startsWith('## ')) return <h2 key={i} style={{ fontSize: 20, fontWeight: 700, margin: '28px 0 10px', color: T.navy, borderLeft: `3px solid ${T.orange}`, paddingLeft: 12 }}>{t.slice(3)}</h2>;
-            const img = t.match(/!\[.*?\]\((.*?)\)/);
-            if (img) return <img key={i} src={img[1]} alt="" style={{ borderRadius: 8, width: '100%', margin: '20px 0', display: 'block' }} loading="lazy" />;
-            const vid = ytId(t);
-            if (vid) return (
-              <div key={i} style={{ position: 'relative', paddingTop: '56.25%', margin: '28px 0', borderRadius: 10, overflow: 'hidden', background: '#000' }}>
-                <iframe style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
-                  src={`https://www.youtube.com/embed/${vid}`} frameBorder="0" allowFullScreen />
-              </div>
-            );
-            return <p key={i} style={{ fontSize: 16, color: '#475569', marginBottom: 14 }}>{t}</p>;
-          })}
-        </div>
-      );
-    });
-
-    // ── ProgressBar ───────────────────────────────────────────────────────────
-    const ProgressBar = ({ value, color = T.navy, height = 4 }) => (
-      <div style={{ height, background: '#E2E8F0', borderRadius: height, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${value}%`, background: color, transition: 'width 0.6s cubic-bezier(.4,0,.2,1)' }} />
-      </div>
-    );
-
-    // ── Badge ─────────────────────────────────────────────────────────────────
-    const Badge = ({ children }) => (
-      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase',
-        color: T.orange, background: '#FFF3E8', border: '1px solid #FDDBB4', borderRadius: 4, padding: '2px 7px' }}>
-        {children}
-      </span>
-    );
-
-    // ── Button ────────────────────────────────────────────────────────────────
-    function Btn({ children, onClick, block, ghost, small, extraStyle = {} }) {
-      const [hov, setHov] = useState(false);
-      return (
-        <button
-          onClick={onClick}
-          onMouseEnter={() => setHov(true)}
-          onMouseLeave={() => setHov(false)}
-          style={{
-            display: block ? 'block' : 'inline-flex',
-            width: block ? '100%' : 'auto',
-            alignItems: 'center', justifyContent: 'center',
-            padding: small ? '8px 16px' : '13px 22px',
-            borderRadius: 8, cursor: 'pointer', fontWeight: 800,
-            fontSize: small ? 10 : 11, letterSpacing: '0.12em', textTransform: 'uppercase',
-            border: ghost ? '1.5px solid #CBD5E1' : 'none',
-            background: ghost ? (hov ? '#F8FAFC' : '#fff') : (hov ? T.orange : T.navy),
-            color: ghost ? T.slate : '#fff',
-            transition: 'all 0.2s',
-            fontFamily: "'DM Sans', sans-serif",
-            ...extraStyle,
-          }}>
-          {children}
-        </button>
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  LANDING
-    // ─────────────────────────────────────────────────────────────────────────
-    function Landing({ courses, completed, onSelect }) {
-      return (
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '48px 24px' }}>
-          <div style={{ marginBottom: 44 }}>
-            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.25em', textTransform: 'uppercase', color: T.orange, marginBottom: 8 }}>
-              NextLabs · Learning Platform
-            </p>
-            <h1 style={{ fontSize: 'clamp(28px, 5vw, 46px)', fontWeight: 900, color: '#0F172A',
-              fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 8 }}>
-              Security Training<br />Directory
-            </h1>
-            <p style={{ color: T.slate, fontSize: 15 }}>Select a module to begin your authorization training journey.</p>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 24 }}>
-            {courses.map(c => (
-              <CourseCard key={c.id} course={c} progress={courseProgress(c, completed)} onClick={() => onSelect(c)} />
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  COURSE CARD
-    // ─────────────────────────────────────────────────────────────────────────
-    const CourseCard = memo(({ course, progress, onClick }) => {
-      const [hov, setHov] = useState(false);
-      return (
-        <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-          style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-            border: `1px solid ${hov ? T.navy : '#E2E8F0'}`,
-            boxShadow: hov ? '0 20px 40px -8px rgba(0,58,122,0.15)' : '0 1px 4px rgba(0,0,0,0.05)',
-            transform: hov ? 'translateY(-4px)' : 'none',
-            transition: 'all 0.25s cubic-bezier(.4,0,.2,1)', display: 'flex', flexDirection: 'column' }}>
-          <div style={{ position: 'relative', paddingTop: '56.25%', background: '#F1F5F9', overflow: 'hidden' }}>
-            <img src={course.thumbnail} alt={course.title} loading="lazy"
-              style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover',
-                filter: hov ? 'none' : 'grayscale(60%) opacity(0.7)',
-                transform: hov ? 'scale(1.06)' : 'scale(1)', transition: 'all 0.5s ease' }} />
-            {progress > 0 && (
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: '#E2E8F0' }}>
-                <div style={{ height: '100%', width: `${progress}%`, background: '#22C55E' }} />
-              </div>
-            )}
-          </div>
-          <div style={{ padding: '20px 22px 22px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center' }}>
-              <Badge>{course.level}</Badge>
-              <span style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{course.duration}</span>
-            </div>
-            <h3 style={{ fontSize: 15, fontWeight: 800, color: hov ? T.navy : '#1E293B', lineHeight: 1.3, flex: 1, transition: 'color 0.2s', marginBottom: 16 }}>{course.title}</h3>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: 14, borderTop: '1px solid #F1F5F9' }}>
-              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: hov ? T.orange : T.navy, transition: 'color 0.2s' }}>Open Module →</span>
-              {progress > 0 && <span style={{ fontSize: 11, fontWeight: 900, color: '#16A34A' }}>{progress}%</span>}
-            </div>
-          </div>
-        </div>
-      );
-    });
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  COURSE DETAILS
-    // ─────────────────────────────────────────────────────────────────────────
-    function Details({ course, user, completed, onStart, onEdit, onBack }) {
-      const pct = courseProgress(course, completed);
-      return (
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '40px 24px' }}>
-          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 800,
-            letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 36 }}>
-            <Icon name="arrow-left" size={13} /> Back to Directory
-          </button>
-
-          <div className="details-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 56, alignItems: 'start' }}>
-            <div>
-              <Badge>{course.level}</Badge>
-              <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif",
-                letterSpacing: '-0.03em', color: '#0F172A', margin: '14px 0', lineHeight: 1.1 }}>{course.title}</h1>
-              <p style={{ fontSize: 16, color: T.slate, lineHeight: 1.75, marginBottom: 36 }}>{course.description}</p>
-
-              <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.3em', textTransform: 'uppercase', color: T.orange, marginBottom: 14 }}>Curriculum Breakdown</p>
-              <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden' }}>
-                {course.sections.map((sec, i) => (
-                  <div key={i}>
-                    <div style={{ padding: '10px 20px', background: '#F8FAFC', fontSize: 9, fontWeight: 800,
-                      letterSpacing: '0.18em', textTransform: 'uppercase', color: '#94A3B8', borderBottom: '1px solid #F1F5F9' }}>{sec.title}</div>
-                    {sec.lessons.map(l => {
-                      const done = completed.has(l.id);
-                      return (
-                        <div key={l.id} style={{ padding: '13px 20px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid #F8FAFC' }}>
-                          {done
-                            ? <span style={{ width: 18, height: 18, background: '#22C55E', borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 11, fontWeight: 900, lineHeight: 1 }}>✓</span>
-                            : <span style={{ width: 18, height: 18, border: '2px solid #CBD5E1', borderRadius: '50%', flexShrink: 0, display: 'inline-block' }} />
-                          }
-                          <span style={{ fontSize: 14, fontWeight: 600, color: done ? '#94A3B8' : '#334155', fontStyle: done ? 'italic' : 'normal' }}>{l.title}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ position: 'sticky', top: 80, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 26 }}>
-              <div style={{ marginBottom: 18 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate }}>Completion</span>
-                  <span style={{ fontSize: 14, fontWeight: 900, color: T.navy }}>{pct}%</span>
-                </div>
-                <ProgressBar value={pct} />
-              </div>
-              <Btn onClick={onStart} block>{pct > 0 ? 'Resume Training' : 'Begin Training'}</Btn>
-              {user && user.role === 'admin' && (
-                <div style={{ marginTop: 10 }}>
-                  <Btn onClick={onEdit} block ghost>Edit Module</Btn>
-                </div>
-              )}
-              <div style={{ marginTop: 20, paddingTop: 18, borderTop: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[['clock', course.duration], ['layers', course.level]].map(([icon, val]) => (
-                  <span key={icon} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: T.slate }}>
-                    <Icon name={icon} size={13} /> {val}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  VIEWER
-    // ─────────────────────────────────────────────────────────────────────────
-    function Viewer({ course, activeLessonId, setActiveLessonId, completed, setCompleted, onExit }) {
-      const [sideOpen, setSideOpen] = useState(false);
-      const lessons = useMemo(() => allLessons(course), [course]);
-      const active = useMemo(() => lessons.find(l => l.id === activeLessonId), [lessons, activeLessonId]);
-      const pct = Math.round(lessons.filter(l => completed.has(l.id)).length / lessons.length * 100);
-
-      const toggleDone = useCallback(() => {
-        if (!active) return;
-        setCompleted(prev => {
-          const next = new Set(prev);
-          next.has(active.id) ? next.delete(active.id) : next.add(active.id);
-          return next;
-        });
-      }, [active, setCompleted]);
-
-      const SidebarInner = () => (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: 260, background: '#fff', borderRight: '1px solid #E2E8F0' }}>
-          <div style={{ padding: '18px 18px 14px', borderBottom: '1px solid #F1F5F9', background: '#F8FAFC' }}>
-            <button onClick={onExit} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 800,
-              letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate, background: 'none', border: 'none', cursor: 'pointer', marginBottom: 14 }}>
-              <Icon name="arrow-left" size={12} /> Exit Course
-            </button>
-            <ProgressBar value={pct} color="#22C55E" height={3} />
-            <p style={{ fontSize: 9, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: 6 }}>Progress: {pct}%</p>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '14px 10px' }}>
-            {course.sections.map((sec, si) => (
-              <div key={si} style={{ marginBottom: 18 }}>
-                <p style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: T.orange, padding: '0 8px', marginBottom: 6 }}>{sec.title}</p>
-                {sec.lessons.map(l => {
-                  const isActive = l.id === activeLessonId, done = completed.has(l.id);
-                  return (
-                    <button key={l.id} onClick={() => { setActiveLessonId(l.id); setSideOpen(false); }}
-                      style={{ width: '100%', textAlign: 'left', padding: '9px 10px', borderRadius: 6,
-                        display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', border: 'none',
-                        background: isActive ? T.navy : 'transparent', color: isActive ? '#fff' : '#475569',
-                        fontWeight: 700, fontSize: 12, fontFamily: "'DM Sans', sans-serif", transition: 'all 0.15s', marginBottom: 2 }}>
-                      <span style={{ width: 14, height: 14, borderRadius: '50%', flexShrink: 0, marginTop: 1,
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        background: done ? '#22C55E' : 'transparent',
-                        border: done ? 'none' : `2px solid ${isActive ? 'rgba(255,255,255,0.4)' : '#CBD5E1'}`,
-                        color: '#fff', fontSize: 9, fontWeight: 900, lineHeight: 1 }}>
-                        {done && '✓'}
-                      </span>
-                      <span style={{ lineHeight: 1.3 }}>{l.title}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-
-      return (
-        <div style={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden', position: 'relative' }}>
-          <div className="viewer-sidebar"><SidebarInner /></div>
-
-          {sideOpen && (
-            <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', zIndex: 50 }} onClick={() => setSideOpen(false)}>
-              <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', left: 0, top: 0, bottom: 0 }}>
-                <SidebarInner />
-              </div>
-            </div>
-          )}
-
-          <div style={{ flex: 1, overflowY: 'auto', background: '#F8FAFC' }}>
-            <div className="mobile-bar" style={{ padding: '12px 16px', background: '#fff', borderBottom: '1px solid #E2E8F0', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button onClick={() => setSideOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, fontWeight: 800,
-                textTransform: 'uppercase', letterSpacing: '0.1em', color: T.navy, background: 'none', border: 'none', cursor: 'pointer' }}>
-                <Icon name="list" size={15} /> Contents
-              </button>
-              <span style={{ fontSize: 10, fontWeight: 900, color: '#94A3B8' }}>{pct}%</span>
-            </div>
-
-            <div style={{ maxWidth: 760, margin: '0 auto', padding: '44px 24px 80px' }}>
-              {active ? (
-                <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #E2E8F0',
-                  padding: 'clamp(24px, 5vw, 52px)', boxShadow: '0 4px 24px rgba(0,0,0,0.04)' }}>
-                  <h1 style={{ fontSize: 'clamp(22px, 4vw, 34px)', fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif",
-                    letterSpacing: '-0.02em', color: '#0F172A', marginBottom: 28, paddingBottom: 22, borderBottom: '1px solid #F1F5F9' }}>{active.title}</h1>
-                  <ContentRenderer content={active.content} />
-                  <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end' }}>
-                    <Btn onClick={toggleDone} extraStyle={{ background: completed.has(active.id) ? '#16A34A' : T.navy }}>
-                      {completed.has(active.id) ? '✓ Completed' : 'Mark as Completed'}
-                    </Btn>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 400, color: '#CBD5E1' }}>
-                  <Icon name="book-open" size={40} />
-                  <p style={{ marginTop: 16, fontWeight: 800, fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase' }}>Select a lesson to begin</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  EDITOR
-    // ─────────────────────────────────────────────────────────────────────────
-    function Editor({ course, onSave, onCancel }) {
-      const [data, setData] = useState(() => JSON.parse(JSON.stringify(course)));
-      const [editId, setEditId] = useState(() => course.sections?.[0]?.lessons?.[0]?.id || null);
-
-      const active = useMemo(() => allLessons(data).find(l => l.id === editId), [data, editId]);
-
-      const updateLesson = useCallback((id, field, val) =>
-        setData(prev => ({ ...prev, sections: prev.sections.map(s => ({
-          ...s, lessons: s.lessons.map(l => l.id === id ? { ...l, [field]: val } : l)
-        }))})), []);
-
-      const addLesson = useCallback((si) => {
-        const id = `l-${Date.now()}`;
-        setData(prev => {
-          const d = JSON.parse(JSON.stringify(prev));
-          d.sections[si].lessons.push({ id, title: 'Untitled Lesson', content: '# Content' });
-          return d;
-        });
-        setEditId(id);
-      }, []);
-
-      const addSection = useCallback(() =>
-        setData(prev => ({ ...prev, sections: [...prev.sections, { title: 'New Section', lessons: [] }] })), []);
-
-      return (
-        <div style={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', background: '#F8FAFC' }}>
-          <div style={{ height: 54, background: '#fff', borderBottom: '1px solid #E2E8F0', padding: '0 18px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0,
-            boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-              <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.25em', textTransform: 'uppercase',
-                color: T.orange, background: '#FFF3E8', border: '1px solid #FDDBB4', borderRadius: 4, padding: '3px 8px', flexShrink: 0 }}>Editor</span>
-              <input value={data.title} onChange={e => setData(d => ({ ...d, title: e.target.value }))}
-                style={{ flex: 1, fontSize: 15, fontWeight: 800, background: 'transparent', border: 'none', outline: 'none', color: '#0F172A', minWidth: 0, fontFamily: "'DM Sans', sans-serif" }} />
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-              <Btn ghost small onClick={onCancel}>Discard</Btn>
-              <Btn small onClick={() => onSave(data)}>Save</Btn>
-            </div>
-          </div>
-
-          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-            <div style={{ width: 230, background: '#fff', borderRight: '1px solid #E2E8F0', overflowY: 'auto', padding: '14px 10px', flexShrink: 0 }}>
-              <p style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#94A3B8', marginBottom: 12, paddingLeft: 8 }}>Structure</p>
-              {data.sections.map((sec, si) => (
-                <div key={si} style={{ marginBottom: 16 }}>
-                  <input value={sec.title} onChange={e => {
-                    const d = JSON.parse(JSON.stringify(data)); d.sections[si].title = e.target.value; setData(d);
-                  }} style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase',
-                    color: T.slate, background: 'transparent', border: 'none', outline: 'none', width: '100%', padding: '2px 8px', fontFamily: "'DM Sans', sans-serif" }} />
-                  {sec.lessons.map(l => (
-                    <button key={l.id} onClick={() => setEditId(l.id)}
-                      style={{ width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-                        cursor: 'pointer', border: 'none', background: l.id === editId ? '#EFF6FF' : 'transparent',
-                        color: l.id === editId ? T.navy : '#475569', fontFamily: "'DM Sans', sans-serif",
-                        borderLeft: l.id === editId ? `2px solid ${T.navy}` : '2px solid transparent', marginBottom: 2 }}>
-                      {l.title}
-                    </button>
-                  ))}
-                  <button onClick={() => addLesson(si)} style={{ display: 'flex', alignItems: 'center', gap: 6,
-                    fontSize: 9, fontWeight: 700, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 10px', fontFamily: "'DM Sans', sans-serif" }}>
-                    <Icon name="plus" size={10} /> Add Lesson
-                  </button>
-                </div>
-              ))}
-              <button onClick={addSection} style={{ width: '100%', padding: '8px 0', border: '1px dashed #CBD5E1',
-                borderRadius: 6, fontSize: 9, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase',
-                color: '#94A3B8', background: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-                + New Section
-              </button>
-            </div>
-
-            {active ? (
-              <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0' }}>
-                  <input value={active.title} onChange={e => updateLesson(editId, 'title', e.target.value)}
-                    style={{ padding: '16px 22px', fontSize: 18, fontWeight: 900, border: 'none', outline: 'none',
-                      borderBottom: '1px solid #E2E8F0', background: '#fff', color: '#0F172A', fontFamily: "'DM Sans', sans-serif" }} />
-                  <textarea value={active.content} onChange={e => updateLesson(editId, 'content', e.target.value)}
-                    style={{ flex: 1, padding: '18px 22px', fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
-                      border: 'none', outline: 'none', resize: 'none', color: '#334155', background: '#FAFAFA', lineHeight: 1.7 }} />
-                </div>
-                <div style={{ flex: 1, overflowY: 'auto', padding: '28px', background: '#fff', display: 'none' }} className="preview-pane">
-                  <ContentRenderer content={active.content} />
-                </div>
-              </div>
-            ) : (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#CBD5E1', flexDirection: 'column', gap: 12 }}>
-                <Icon name="mouse-pointer-2" size={28} />
-                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.3em', textTransform: 'uppercase' }}>Select a lesson</span>
-              </div>
-            )}
-          </div>
-        </div>
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  LOGIN — passwordless OTP flow
-    // ─────────────────────────────────────────────────────────────────────────
-    function Login({ onLogin }) {
-      const [step, setStep]     = useState('email'); // 'email' | 'code'
-      const [email, setEmail]   = useState('');
-      const [code, setCode]     = useState('');
-      const [loading, setLoading] = useState(false);
-      const [error, setError]   = useState('');
-      const [resendTimer, setResendTimer] = useState(0);
-      const codeRef = useRef(null);
-
-      useEffect(() => {
-        if (resendTimer > 0) {
-          const t = setTimeout(() => setResendTimer(r => r - 1), 1000);
-          return () => clearTimeout(t);
-        }
-      }, [resendTimer]);
-
-      const requestCode = async () => {
-        if (!email || !email.includes('@')) return setError('Please enter a valid email address.');
-        setLoading(true); setError('');
-        try {
-          const r = await fetch('/api/send-code', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.trim().toLowerCase() }),
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.error || 'Failed to send code');
-          setStep('code');
-          setResendTimer(60);
-          setTimeout(() => codeRef.current?.focus(), 100);
-        } catch(e) { setError(e.message); }
-        finally { setLoading(false); }
-      };
-
-      const verifyCode = async () => {
-        if (code.length !== 6) return setError('Please enter the 6-digit code.');
-        setLoading(true); setError('');
-        try {
-          const r = await fetch('/api/verify-code', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email.trim().toLowerCase(), code }),
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j.error || 'Verification failed');
-          onLogin(j.user);
-        } catch(e) { setError(e.message); setCode(''); }
-        finally { setLoading(false); }
-      };
-
-      const inputStyle = {
-        width: '100%', padding: '13px 15px', border: '1.5px solid #E2E8F0', borderRadius: 8,
-        fontSize: 15, outline: 'none', color: '#1E293B', background: '#F8FAFC',
-        fontFamily: "'DM Sans', sans-serif", transition: 'border-color 0.2s',
-      };
-
-      return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
-          minHeight: 'calc(100vh - 64px)', padding: 24, background: '#F8FAFC' }}>
-          <div style={{ background: '#fff', border: '1px solid #E2E8F0', borderRadius: 14,
-            padding: 'clamp(28px, 5vw, 48px)', width: '100%', maxWidth: 400,
-            boxShadow: '0 20px 60px rgba(0,58,122,0.08)' }}>
-
-            <div style={{ width: 46, height: 46, background: T.navy, borderRadius: 10,
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              marginBottom: 22, boxShadow: '0 8px 20px rgba(0,58,122,0.25)' }}>
-              <Icon name="shield-check" size={22} />
-            </div>
-            <h2 style={{ fontSize: 22, fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif",
-              letterSpacing: '-0.01em', color: T.navy, marginBottom: 4 }}>
-              {step === 'email' ? 'Access Portal' : 'Check Your Email'}
-            </h2>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase',
-              color: '#94A3B8', marginBottom: 28 }}>
-              {step === 'email' ? 'Functional Academy' : `Code sent to ${email}`}
-            </p>
-
-            {step === 'email' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.15em',
-                    textTransform: 'uppercase', color: T.slate, marginBottom: 8 }}>Your Email</label>
-                  <input type="email" placeholder="you@example.com" value={email}
-                    onChange={e => { setEmail(e.target.value); setError(''); }}
-                    onKeyDown={e => e.key === 'Enter' && requestCode()}
-                    style={inputStyle} autoFocus />
-                </div>
-                {error && <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>{error}</p>}
-                <Btn block onClick={requestCode} extraStyle={{ opacity: loading ? 0.7 : 1 }}>
-                  {loading ? 'Sending…' : 'Send Login Code'}
-                </Btn>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.15em',
-                    textTransform: 'uppercase', color: T.slate, marginBottom: 8 }}>6-Digit Code</label>
-                  <input ref={codeRef} type="text" inputMode="numeric" maxLength={6}
-                    placeholder="000000" value={code}
-                    onChange={e => { setCode(e.target.value.replace(/\D/g,'')); setError(''); }}
-                    onKeyDown={e => e.key === 'Enter' && verifyCode()}
-                    style={{ ...inputStyle, fontSize: 28, fontWeight: 900, letterSpacing: '0.3em',
-                      textAlign: 'center', fontFamily: "'Barlow Condensed', sans-serif" }} />
-                </div>
-                {error && <p style={{ fontSize: 12, color: '#DC2626', fontWeight: 600 }}>{error}</p>}
-                <Btn block onClick={verifyCode} extraStyle={{ opacity: loading ? 0.7 : 1 }}>
-                  {loading ? 'Verifying…' : 'Sign In'}
-                </Btn>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <button onClick={() => { setStep('email'); setCode(''); setError(''); }}
-                    style={{ fontSize: 12, color: T.slate, background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-                    ← Change email
-                  </button>
-                  <button onClick={resendTimer > 0 ? null : requestCode}
-                    disabled={resendTimer > 0}
-                    style={{ fontSize: 12, color: resendTimer > 0 ? '#94A3B8' : T.orange, background: 'none',
-                      border: 'none', cursor: resendTimer > 0 ? 'default' : 'pointer',
-                      fontWeight: 700, fontFamily: "'DM Sans', sans-serif" }}>
-                    {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend code'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <p style={{ marginTop: 24, fontSize: 9, textAlign: 'center', color: '#CBD5E1',
-              fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              No password required · One-time code only
-            </p>
-          </div>
-        </div>
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  USER MANAGEMENT PAGE
-    // ─────────────────────────────────────────────────────────────────────────
-    function UserManagement({ currentUser, onBack }) {
-      const [users, setUsers]       = useState([]);
-      const [loading, setLoading]   = useState(true);
-      const [saving, setSaving]     = useState(false);
-      const [newEmail, setNewEmail] = useState('');
-      const [newName, setNewName]   = useState('');
-      const [newRole, setNewRole]   = useState('user');
-      const [msg, setMsg]           = useState('');
-      const [error, setError]       = useState('');
-
-      useEffect(() => {
-        fetch('/api/users')
-          .then(r => r.json())
-          .then(j => { setUsers(j.users || []); setLoading(false); })
-          .catch(() => setLoading(false));
-      }, []);
-
-      const saveUsers = async (list) => {
-        setSaving(true);
-        try {
-          const r = await fetch('/api/users', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ users: list }),
-          });
-          if (!r.ok) throw new Error('Save failed');
-          setMsg('✓ Users saved successfully');
-          setTimeout(() => setMsg(''), 3000);
-        } catch(e) { setError(e.message); }
-        finally { setSaving(false); }
-      };
-
-      const addUser = () => {
-        if (!newEmail.includes('@')) return setError('Please enter a valid email.');
-        if (users.some(u => u.email.toLowerCase() === newEmail.toLowerCase()))
-          return setError('That email is already registered.');
-        const u = { email: newEmail.trim().toLowerCase(), name: newName.trim() || newEmail.split('@')[0], role: newRole };
-        const next = [...users, u];
-        setUsers(next);
-        saveUsers(next);
-        setNewEmail(''); setNewName(''); setNewRole('user'); setError('');
-      };
-
-      const removeUser = (email) => {
-        if (email === 'rustin.neo@gmail.com') return setError("Cannot remove the primary admin account.");
-        if (email === currentUser.email) return setError("You cannot remove your own account.");
-        const next = users.filter(u => u.email !== email);
-        setUsers(next);
-        saveUsers(next);
-      };
-
-      const toggleRole = (email) => {
-        if (email === 'rustin.neo@gmail.com') return setError("Cannot change the primary admin role.");
-        const next = users.map(u => u.email === email ? { ...u, role: u.role === 'admin' ? 'user' : 'admin' } : u);
-        setUsers(next);
-        saveUsers(next);
-      };
-
-      const inputStyle = {
-        padding: '10px 14px', border: '1.5px solid #E2E8F0', borderRadius: 8, fontSize: 13,
-        outline: 'none', fontFamily: "'DM Sans', sans-serif", color: '#1E293B', background: '#fff',
-      };
-
-      return (
-        <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 24px' }}>
-          <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10,
-            fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: T.slate,
-            background: 'none', border: 'none', cursor: 'pointer', marginBottom: 36 }}>
-            <Icon name="arrow-left" size={13} /> Back
-          </button>
-
-          <div style={{ marginBottom: 36 }}>
-            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.25em', textTransform: 'uppercase', color: T.orange, marginBottom: 6 }}>Admin</p>
-            <h1 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 900, fontFamily: "'Barlow Condensed', sans-serif",
-              letterSpacing: '-0.02em', color: '#0F172A', marginBottom: 4 }}>User Management</h1>
-            <p style={{ fontSize: 14, color: T.slate }}>Add users and manage their access permissions.</p>
-          </div>
-
-          {/* Add user form */}
-          <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 24, marginBottom: 32 }}>
-            <p style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase', color: T.navy, marginBottom: 16 }}>Add New User</p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 10, alignItems: 'end' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', color: T.slate, marginBottom: 6 }}>Email *</label>
-                <input type="email" placeholder="user@company.com" value={newEmail}
-                  onChange={e => { setNewEmail(e.target.value); setError(''); }}
-                  onKeyDown={e => e.key === 'Enter' && addUser()}
-                  style={{ ...inputStyle, width: '100%' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', color: T.slate, marginBottom: 6 }}>Name (optional)</label>
-                <input type="text" placeholder="Display name" value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  style={{ ...inputStyle, width: '100%' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: 9, fontWeight: 800, letterSpacing: '0.12em',
-                  textTransform: 'uppercase', color: T.slate, marginBottom: 6 }}>Role</label>
-                <select value={newRole} onChange={e => setNewRole(e.target.value)}
-                  style={{ ...inputStyle, cursor: 'pointer' }}>
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <Btn onClick={addUser} extraStyle={{ whiteSpace: 'nowrap', marginBottom: 1 }}>+ Add User</Btn>
-            </div>
-            {error && <p style={{ marginTop: 10, fontSize: 12, color: '#DC2626', fontWeight: 600 }}>{error}</p>}
-            {msg   && <p style={{ marginTop: 10, fontSize: 12, color: '#16A34A', fontWeight: 600 }}>{msg}</p>}
-          </div>
-
-          {/* User list */}
-          <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 20px', background: '#F8FAFC', display: 'grid',
-              gridTemplateColumns: '1fr 1fr auto auto', gap: 12,
-              fontSize: 9, fontWeight: 800, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#94A3B8' }}>
-              <span>Email</span><span>Name</span><span style={{ textAlign: 'center' }}>Role</span><span></span>
-            </div>
-
-            {loading ? (
-              <div style={{ padding: 40, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Loading users…</div>
-            ) : users.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>No users yet.</div>
-            ) : users.map(u => {
-              const isPrimary = u.email === 'rustin.neo@gmail.com';
-              const isSelf    = u.email === currentUser.email;
-              return (
-                <div key={u.email} style={{ padding: '14px 20px', display: 'grid',
-                  gridTemplateColumns: '1fr 1fr auto auto', gap: 12, alignItems: 'center',
-                  borderTop: '1px solid #F1F5F9', background: isSelf ? '#FAFEFF' : '#fff' }}>
-                  <div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>{u.email}</span>
-                    {isSelf && <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 800, color: T.orange,
-                      background: '#FFF3E8', border: '1px solid #FDDBB4', borderRadius: 4, padding: '1px 6px' }}>You</span>}
-                    {isPrimary && <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 800, color: T.navy,
-                      background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 4, padding: '1px 6px' }}>Primary</span>}
-                  </div>
-                  <span style={{ fontSize: 13, color: T.slate }}>{u.name || '—'}</span>
-                  <button onClick={() => !isPrimary && toggleRole(u.email)}
-                    style={{ padding: '4px 12px', borderRadius: 20, fontSize: 10, fontWeight: 800,
-                      letterSpacing: '0.08em', textTransform: 'uppercase', border: 'none',
-                      cursor: isPrimary ? 'default' : 'pointer',
-                      background: u.role === 'admin' ? '#003A7A' : '#F1F5F9',
-                      color: u.role === 'admin' ? '#fff' : '#64748B',
-                      transition: 'all 0.2s' }}>
-                    {u.role === 'admin' ? '⚙ Admin' : '👤 User'}
-                  </button>
-                  <button onClick={() => removeUser(u.email)}
-                    disabled={isPrimary || isSelf}
-                    style={{ width: 30, height: 30, borderRadius: 6, border: 'none',
-                      background: (isPrimary || isSelf) ? 'transparent' : '#FEF2F2',
-                      color: (isPrimary || isSelf) ? '#CBD5E1' : '#EF4444',
-                      cursor: (isPrimary || isSelf) ? 'default' : 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 16, fontWeight: 700 }}>
-                    ×
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-
-          {saving && (
-            <p style={{ marginTop: 16, fontSize: 12, color: T.slate, fontWeight: 600, textAlign: 'center' }}>
-              Saving…
-            </p>
-          )}
-        </div>
-      );
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  SECURE API — calls Netlify function → stores in Netlify Blobs DB
-    // ─────────────────────────────────────────────────────────────────────────
-    const FN = '/api/courses';
-
-    async function dbLoad() {
-      const r = await fetch(FN);
-      if (!r.ok) throw new Error('Could not load courses');
-      const j = await r.json();
-      return j.courses;
-    }
-
-    async function dbSave(courses) {
-      const r = await fetch(FN, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courses }),
-      });
-      if (!r.ok) throw new Error('Could not save courses');
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  ROOT APP
-    // ─────────────────────────────────────────────────────────────────────────
-    function App() {
-      const [view, setView]         = useState('landing');
-      const [courses, setCourses]   = useState(SEED);
-      const [courseId, setCourseId] = useState(null);
-      const [user, setUser]         = useState(null);
-      const [completed, setCompleted] = useState(new Set());
-      const [lessonId, setLessonId]   = useState(null);
-      const [syncMsg, setSyncMsg]     = useState('');
-      const [syncing, setSyncing]     = useState(false);
-      const [loading, setLoading]     = useState(true);
-
-      const flash = useCallback((msg) => {
-        setSyncMsg(msg);
-        setTimeout(() => setSyncMsg(''), 4000);
-      }, []);
-
-      // ── Load courses from DB on startup ────────────────────────────────────
-      useEffect(() => {
-        (async () => {
-          try {
-            const data = await dbLoad();
-            if (data && Array.isArray(data)) setCourses(data);
-          } catch(e) {
-            console.warn('Could not load from DB, using defaults', e);
-          } finally {
-            setLoading(false);
-          }
-        })();
-      }, []);
-
-      // ── Save to Netlify DB ─────────────────────────────────────────────────
-      const syncToDB = useCallback(async (latestCourses) => {
-        setSyncing(true);
-        try {
-          await dbSave(latestCourses);
-          flash('✓ Saved to database — live on your site!');
-        } catch(e) {
-          flash('✗ Save failed. Check your connection and try again.');
-        } finally {
-          setSyncing(false);
-        }
-      }, [flash]);
-
-      const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
-
-      // ── Login receives full user object from verify-code function ──────────
-      const login  = useCallback((userObj) => {
-        setUser(userObj);
-        setView('landing');
-      }, []);
-
-      const logout = useCallback(() => { setUser(null); setView('landing'); }, []);
-      const openCourse = useCallback((c) => { setCourseId(c.id); setView('details'); }, []);
-
-      const startCourse = useCallback(() => {
-        if (!user) return setView('login');
-        const first = allLessons(course).find(l => !completed.has(l.id))?.id || allLessons(course)[0]?.id;
-        setLessonId(first);
-        setView('viewer');
-      }, [user, course, completed]);
-
-      const saveCourse = useCallback((updated) => {
-        setCourses(prev => {
-          const next = prev.map(c => c.id === updated.id ? updated : c);
-          syncToDB(next);
-          return next;
-        });
-        setCourseId(updated.id);
-        setView('details');
-      }, [syncToDB]);
-
-      const newCourse = useCallback(() => {
-        const id = `course-${Date.now()}`;
-        const c = {
-          id, title: 'New Security Module', tagline: 'Summary', description: 'Description here.',
-          duration: '30 min', level: 'Level 1',
-          thumbnail: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc48?auto=format&fit=crop&q=80&w=800',
-          sections: [{ title: 'Phase 1', lessons: [{ id: `l-${Date.now()}`, title: 'Introduction', content: '# Introduction\nContent goes here.' }] }]
+<body class="text-slate-900">
+    <div id="root"></div>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const Icon = ({ name, size = 18, className = "" }) => {
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons({
+                        attrs: { class: className, 'stroke-width': 2, width: size, height: size }
+                    });
+                }
+            }, [name, size, className]);
+            return <i data-lucide={name} className={className}></i>;
         };
-        setCourses(prev => [...prev, c]);
-        setCourseId(id);
-        setView('editor');
-      }, []);
 
-      if (loading) return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: 16, background: '#F8FAFC' }}>
-          <div style={{ width: 40, height: 40, border: `3px solid #E2E8F0`, borderTop: `3px solid ${T.navy}`, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: T.slate }}>Loading courses…</p>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      );
+        const App = () => {
+            const [view, setView] = useState('landing'); 
+            const [isAdmin, setIsAdmin] = useState(false);
+            const [showHelp, setShowHelp] = useState(false);
+            const [course, setCourse] = useState({
+                title: "Fundamentals of Design",
+                description: "Master minimalist aesthetics with practical exercises.",
+                lessons: [
+                    { 
+                        id: 1, 
+                        title: "Intro Module", 
+                        duration: "5m", 
+                        content: "## Welcome\nPaste any YouTube link on its own line:\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n- It auto-embeds\n- Supports Markdown" 
+                    }
+                ]
+            });
+            const [isSaving, setIsSaving] = useState(false);
 
-      return (
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#fff', fontFamily: "'DM Sans', sans-serif" }}>
+            useEffect(() => {
+                let timer;
+                if (isSaving) {
+                    timer = setTimeout(() => setIsSaving(false), 800);
+                }
+                return () => clearTimeout(timer);
+            }, [isSaving]);
 
-          {/* ── Toast ── */}
-          {syncMsg && (
-            <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 999,
-              background: syncMsg.startsWith('✓') ? '#0F4C2A' : '#7F1D1D',
-              color: '#fff', padding: '12px 24px', borderRadius: 10, fontSize: 13, fontWeight: 700,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.2)', whiteSpace: 'nowrap' }}>
-              {syncMsg}
-            </div>
-          )}
+            const updateCourse = (field, value) => {
+                if (!isAdmin) return;
+                setIsSaving(true);
+                setCourse(prev => ({ ...prev, [field]: value }));
+            };
 
-          {/* ── Header ── */}
-          <header style={{ height: 64, background: '#fff', borderBottom: '1px solid #E2E8F0', display: 'flex',
-            alignItems: 'center', justifyContent: 'space-between', padding: '0 24px',
-            position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 1px 0 #F1F5F9' }}>
-            <button onClick={() => setView('landing')}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: 'pointer' }}>
-              <div style={{ background: T.navy, color: '#fff', width: 34, height: 34, borderRadius: 8,
-                display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="layout" size={16} />
-              </div>
-              <span style={{ fontWeight: 900, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: T.navy, fontFamily: "'Barlow Condensed', sans-serif" }}>Functional / Academy</span>
-            </button>
+            const updateLesson = (id, field, value) => {
+                if (!isAdmin) return;
+                setIsSaving(true);
+                setCourse(prev => ({
+                    ...prev,
+                    lessons: prev.lessons.map(l => l.id === id ? { ...l, [field]: value } : l)
+                }));
+            };
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            const addLesson = () => {
+                if (!isAdmin) return;
+                setIsSaving(true);
+                setCourse(prev => ({
+                    ...prev,
+                    lessons: [...prev.lessons, { id: Date.now(), title: "New Module", duration: "10m", content: "" }]
+                }));
+            };
 
-              {syncing && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 800,
-                  letterSpacing: '0.15em', textTransform: 'uppercase', color: T.orange }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.orange, animation: 'pulse 1s infinite' }} />
-                  Saving…
-                  <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            const removeLesson = (id) => {
+                if (!isAdmin || course.lessons.length <= 1) return;
+                setIsSaving(true);
+                setCourse(prev => ({
+                    ...prev,
+                    lessons: prev.lessons.filter(l => l.id !== id)
+                }));
+            };
+
+            const getYouTubeEmbed = (text) => {
+                if (!text) return '*No content yet.*';
+                
+                // Enhanced Regex for YouTube variations (standard, short, embed)
+                const ytRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?$/gm;
+                
+                const html = text.replace(ytRegex, (match, id) => {
+                    return `<div class="video-wrapper"><iframe src="https://www.youtube.com/embed/${id}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
+                });
+
+                return marked.parse(html);
+            };
+
+            if (view === 'landing') {
+                return (
+                    <div className="max-w-4xl mx-auto px-6 py-12 fade-in">
+                        <header className="flex justify-between items-start mb-16">
+                            <div>
+                                <h1 className="text-4xl font-bold tracking-tight mb-2 text-slate-900">Courses</h1>
+                                <p className="text-slate-500">Curate and manage your content.</p>
+                            </div>
+                            <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 px-4 py-2 rounded-full">
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isAdmin ? 'text-slate-400' : 'text-slate-900'}`}>Viewer</span>
+                                <label className="flex items-center cursor-pointer relative">
+                                    <input type="checkbox" className="sr-only" checked={isAdmin} onChange={() => setIsAdmin(!isAdmin)} />
+                                    <div className="block bg-slate-200 w-10 h-6 rounded-full"></div>
+                                    <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
+                                </label>
+                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isAdmin ? 'text-emerald-600' : 'text-slate-400'}`}>Admin</span>
+                            </div>
+                        </header>
+
+                        <div className="grid gap-6">
+                            <div 
+                                onClick={() => isAdmin && setView('editor')}
+                                className={`group relative border border-slate-100 bg-white p-8 rounded-3xl transition-all ${isAdmin ? 'cursor-pointer hover:border-slate-300 hover:shadow-xl' : ''}`}
+                            >
+                                <div className="flex justify-between items-start mb-6">
+                                    <div className="flex-1">
+                                        <h3 className="text-2xl font-bold text-slate-800 mb-1">{course.title}</h3>
+                                        <p className="text-slate-500 line-clamp-1">{course.description}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold uppercase tracking-wider">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                        Live
+                                    </div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="flex gap-4 text-xs font-medium text-slate-400">
+                                        <span className="flex items-center gap-1"><Icon name="layers" size={14} /> {course.lessons.length} Modules</span>
+                                    </div>
+                                    {isAdmin && (
+                                        <span className="text-slate-400 group-hover:text-slate-900 transition-colors flex items-center gap-1 font-medium">
+                                            Open Editor <Icon name="arrow-right" size={16} />
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                            {isAdmin && (
+                                <button onClick={() => setView('editor')} className="py-10 border-2 border-dashed border-slate-100 rounded-3xl text-slate-400 hover:border-slate-300 transition-all flex flex-col items-center gap-2">
+                                    <Icon name="plus" size={32} />
+                                    <span className="font-medium text-sm">New Course</span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="max-w-6xl mx-auto px-6 py-12 fade-in">
+                    <header className="flex justify-between items-center mb-8">
+                        <button onClick={() => setView('landing')} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-medium">
+                            <Icon name="arrow-left" size={20} /> Dashboard
+                        </button>
+                        
+                        <div className="flex items-center gap-6">
+                            <div className="relative">
+                                <button 
+                                    onMouseEnter={() => setShowHelp(true)}
+                                    onMouseLeave={() => setShowHelp(false)}
+                                    className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-50 transition-all"
+                                >
+                                    <Icon name="info" size={20} />
+                                </button>
+                                {showHelp && (
+                                    <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900 text-white p-5 rounded-2xl shadow-2xl z-50 text-[11px] leading-relaxed fade-in">
+                                        <h4 className="font-bold mb-3 text-emerald-400 border-b border-white/10 pb-1 uppercase tracking-widest">Syntax Guide</h4>
+                                        <div className="space-y-2 opacity-90 font-mono">
+                                            <p># Title 1</p>
+                                            <p>## Title 2</p>
+                                            <p>**Bold** / *Italic*</p>
+                                            <p>- Bullet points</p>
+                                            <p>`Code snippet`</p>
+                                            <div className="pt-2 text-emerald-300">VIDEO EMBED:</div>
+                                            <p className="opacity-60 text-[10px]">Paste YouTube URL on a new line</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2 text-slate-300 text-xs font-bold uppercase tracking-widest">
+                                <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-orange-400 animate-pulse' : 'bg-emerald-500'}`}></div>
+                                {isSaving ? 'Saving' : 'Saved'}
+                            </div>
+                        </div>
+                    </header>
+
+                    <section className="mb-12 max-w-2xl">
+                        <input 
+                            value={course.title}
+                            onChange={(e) => updateCourse('title', e.target.value)}
+                            className="editor-input text-4xl font-bold mb-2 tracking-tight"
+                            placeholder="Course Title"
+                        />
+                        <textarea 
+                            value={course.description}
+                            onChange={(e) => updateCourse('description', e.target.value)}
+                            className="editor-input text-slate-400 resize-none h-12 text-lg"
+                            placeholder="Brief description..."
+                        />
+                    </section>
+
+                    <div className="space-y-10">
+                        {course.lessons.map((lesson, index) => (
+                            <div key={lesson.id} className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all hover:border-slate-300">
+                                <div className="bg-slate-50/50 px-8 py-4 border-b border-slate-200 flex justify-between items-center">
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">{String(index + 1).padStart(2, '0')}</span>
+                                        <input 
+                                            value={lesson.title}
+                                            onChange={(e) => updateLesson(lesson.id, 'title', e.target.value)}
+                                            className="font-bold text-slate-700 bg-transparent outline-none text-lg tracking-tight"
+                                            placeholder="Module Name"
+                                        />
+                                    </div>
+                                    <button onClick={() => removeLesson(lesson.id)} className="text-slate-300 hover:text-red-400 transition-colors"><Icon name="trash" size={16}/></button>
+                                </div>
+                                <div className="grid grid-cols-2 min-h-[500px]">
+                                    <div className="border-r border-slate-100 p-6">
+                                        <textarea 
+                                            value={lesson.content}
+                                            onChange={(e) => updateLesson(lesson.id, 'content', e.target.value)}
+                                            className="w-full h-full resize-none outline-none font-mono text-sm text-slate-600 leading-relaxed placeholder:text-slate-200"
+                                            placeholder="# Content start..."
+                                        />
+                                    </div>
+                                    <div className="p-8 overflow-y-auto bg-slate-50/20">
+                                        <div 
+                                            className="markdown-body"
+                                            dangerouslySetInnerHTML={{ __html: getYouTubeEmbed(lesson.content) }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        <button onClick={addLesson} className="w-full py-6 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 font-bold text-sm hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                            <Icon name="plus-circle" size={20} /> ADD MODULE
+                        </button>
+                    </div>
                 </div>
-              )}
+            );
+        };
 
-              {user && user.role === 'admin' && (
-                <>
-                  <button onClick={newCourse} style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.2em',
-                    textTransform: 'uppercase', color: T.navy, background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: "'DM Sans', sans-serif" }}>
-                    + New Course
-                  </button>
-                  <button onClick={() => setView('users')} style={{ display: 'flex', alignItems: 'center', gap: 5,
-                    fontSize: 9, fontWeight: 900, letterSpacing: '0.15em', textTransform: 'uppercase',
-                    color: view === 'users' ? T.orange : T.slate, background: 'none', border: 'none',
-                    cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
-                    <Icon name="users" size={13} /> Users
-                  </button>
-                  <button onClick={() => syncToDB(courses)} disabled={syncing}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, fontWeight: 900,
-                      letterSpacing: '0.15em', textTransform: 'uppercase', color: '#fff',
-                      background: T.navy, border: 'none', borderRadius: 6, padding: '7px 14px',
-                      cursor: syncing ? 'not-allowed' : 'pointer', opacity: syncing ? 0.6 : 1,
-                      fontFamily: "'DM Sans', sans-serif" }}>
-                    <Icon name="cloud" size={12} /> Sync
-                  </button>
-                  <div style={{ width: 1, height: 20, background: '#E2E8F0' }} />
-                </>
-              )}
-
-              {user ? (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: T.navy,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                      {(user.name || user.email)[0].toUpperCase()}
-                    </div>
-                    <div style={{ lineHeight: 1.2 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#1E293B' }}>{user.name || user.email.split('@')[0]}</div>
-                      {user.role === 'admin' && (
-                        <div style={{ fontSize: 9, fontWeight: 800, color: T.orange, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Admin</div>
-                      )}
-                    </div>
-                  </div>
-                  <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', display: 'flex', alignItems: 'center' }}>
-                    <Icon name="log-out" size={16} />
-                  </button>
-                </>
-              ) : (
-                <Btn small onClick={() => setView('login')}>Sign In</Btn>
-              )}
-            </div>
-          </header>
-
-          {/* ── Views ── */}
-          <main style={{ flex: 1 }}>
-            {view === 'landing' && <Landing courses={courses} completed={completed} onSelect={openCourse} />}
-            {view === 'details' && course && (
-              <Details course={course} user={user} completed={completed}
-                onStart={startCourse} onEdit={() => setView('editor')} onBack={() => setView('landing')} />
-            )}
-            {view === 'login'  && <Login onLogin={login} />}
-            {view === 'viewer' && course && (
-              <Viewer course={course} activeLessonId={lessonId} setActiveLessonId={setLessonId}
-                completed={completed} setCompleted={setCompleted} onExit={() => setView('details')} />
-            )}
-            {view === 'editor' && course && (
-              <Editor course={course} onSave={saveCourse} onCancel={() => setView('details')} />
-            )}
-            {view === 'users' && user?.role === 'admin' && (
-              <UserManagement currentUser={user} onBack={() => setView('landing')} />
-            )}
-          </main>
-        </div>
-      );
-    }
-
-    // ── Mount ──────────────────────────────────────────────────────────────────
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<App />);
-  </script>
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
