@@ -7,30 +7,29 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #ffffff; }
+        body { font-family: 'Inter', sans-serif; background-color: #ffffff; scroll-behavior: smooth; }
         .editor-input { border: none; background: transparent; outline: none; width: 100%; }
         textarea::-webkit-scrollbar { width: 4px; }
         textarea::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        .markdown-body { font-size: 0.875rem; line-height: 1.6; color: #334155; }
-        .markdown-body h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: #0f172a; }
-        .markdown-body h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #1e293b; }
-        .markdown-body p { margin-bottom: 1rem; }
+        .markdown-body { font-size: 1rem; line-height: 1.7; color: #334155; }
+        .markdown-body h1 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1.5rem; color: #0f172a; letter-spacing: -0.025em; scroll-margin-top: 2rem; }
+        .markdown-body h2 { font-size: 1.5rem; font-weight: 700; margin-top: 2rem; margin-bottom: 1rem; color: #1e293b; scroll-margin-top: 2rem; }
+        .markdown-body p { margin-bottom: 1.25rem; }
         .markdown-body code { font-family: 'JetBrains Mono', monospace; background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
-        .markdown-body pre { background: #f8fafc; padding: 1rem; border-radius: 8px; overflow-x: auto; margin-bottom: 1rem; border: 1px solid #f1f5f9; }
-        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        .markdown-body pre { background: #0f172a; color: #f8fafc; padding: 1.5rem; border-radius: 12px; overflow-x: auto; margin-bottom: 1.5rem; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1.25rem; }
         
-        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 12px; background: #000; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 16px; background: #000; margin: 2rem 0; }
         .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
         .dot { transition: all 0.3s ease-in-out; }
         input:checked ~ .dot { transform: translateX(100%); background-color: #10b981; }
-        input:checked ~ .block { background-color: #d1fae5; }
     </style>
 </head>
 <body class="text-slate-900">
@@ -42,236 +41,252 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
         const Icon = ({ name, size = 18, className = "" }) => {
+            const iconRef = useRef(null);
             useEffect(() => {
-                if (window.lucide) {
+                if (window.lucide && iconRef.current) {
+                    iconRef.current.innerHTML = `<i data-lucide="${name}"></i>`;
                     window.lucide.createIcons({
-                        attrs: { class: className, 'stroke-width': 2, width: size, height: size }
+                        nameAttr: 'data-lucide',
+                        attrs: { class: className, 'stroke-width': 2, width: size, height: size },
+                        root: iconRef.current
                     });
                 }
             }, [name, size, className]);
-            return <i data-lucide={name} className={className}></i>;
+            return <span ref={iconRef} className="inline-flex items-center justify-center"></span>;
         };
 
         const App = () => {
             const [view, setView] = useState('landing'); 
             const [isAdmin, setIsAdmin] = useState(false);
-            const [showHelp, setShowHelp] = useState(false);
+            const [activeLessonIdx, setActiveLessonIdx] = useState(0);
             const [course, setCourse] = useState({
                 title: "Fundamentals of Design",
                 description: "Master minimalist aesthetics with practical exercises.",
                 lessons: [
-                    { 
-                        id: 1, 
-                        title: "Intro Module", 
-                        duration: "5m", 
-                        content: "## Welcome\nPaste any YouTube link on its own line:\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n- It auto-embeds\n- Supports Markdown" 
-                    }
+                    { id: Date.now(), title: "Getting Started", content: "# Welcome\nWatch this intro:\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n## Core Principles\nDesign is about constraints. Keep it simple.\n\n## Learning Path\nFollow the sidebar to navigate." },
+                    { id: Date.now() + 1, title: "Typography", content: "# Type Basics\nUse clean sans-serif fonts for UI.\n\n## Recommended Fonts\n- Inter\n- Roboto\n- Helvetica\n\n## Why Typography Matters\nIt's the foundation of clarity." }
                 ]
             });
             const [isSaving, setIsSaving] = useState(false);
 
             useEffect(() => {
-                let timer;
                 if (isSaving) {
-                    timer = setTimeout(() => setIsSaving(false), 800);
+                    const timer = setTimeout(() => setIsSaving(false), 800);
+                    return () => clearTimeout(timer);
                 }
-                return () => clearTimeout(timer);
             }, [isSaving]);
 
-            const updateCourse = (field, value) => {
-                if (!isAdmin) return;
-                setIsSaving(true);
-                setCourse(prev => ({ ...prev, [field]: value }));
+            const progress = useMemo(() => {
+                if (!course.lessons.length) return 0;
+                return ((activeLessonIdx + 1) / course.lessons.length) * 100;
+            }, [activeLessonIdx, course.lessons.length]);
+
+            const TOC = useMemo(() => {
+                const currentLesson = course.lessons[activeLessonIdx];
+                if (!currentLesson || !currentLesson.content) return [];
+                
+                const lines = currentLesson.content.split('\n');
+                return lines
+                    .filter(line => line.trim().startsWith('#'))
+                    .map(line => {
+                        const match = line.match(/^(#+)/);
+                        if (!match) return null;
+                        const level = match[0].length;
+                        const text = line.replace(/^#+\s*/, '').trim();
+                        const id = text.toLowerCase().replace(/[^\w]+/g, '-');
+                        return { text, level, id };
+                    })
+                    .filter(item => item !== null);
+            }, [activeLessonIdx, course.lessons]);
+
+            const renderMarkdown = (text) => {
+                if (!text) return '';
+                const ytRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?$/gm;
+                const filteredText = text.replace(ytRegex, (match, id) => {
+                    return `<div class="video-wrapper"><iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe></div>`;
+                });
+                
+                const renderer = new marked.Renderer();
+                renderer.heading = (text, level) => {
+                    // text can be an object in some versions of marked, ensure it's stringified
+                    const rawText = typeof text === 'object' ? text.text : text;
+                    const cleanText = String(rawText || '');
+                    const id = cleanText.toLowerCase().replace(/[^\w]+/g, '-');
+                    return `<h${level} id="${id}">${cleanText}</h${level}>`;
+                };
+                
+                return marked.parse(filteredText, { renderer });
             };
 
-            const updateLesson = (id, field, value) => {
-                if (!isAdmin) return;
+            const updateLesson = (idx, field, value) => {
                 setIsSaving(true);
-                setCourse(prev => ({
-                    ...prev,
-                    lessons: prev.lessons.map(l => l.id === id ? { ...l, [field]: value } : l)
-                }));
+                const newLessons = [...course.lessons];
+                newLessons[idx] = { ...newLessons[idx], [field]: value };
+                setCourse({ ...course, lessons: newLessons });
             };
 
             const addLesson = () => {
-                if (!isAdmin) return;
-                setIsSaving(true);
-                setCourse(prev => ({
-                    ...prev,
-                    lessons: [...prev.lessons, { id: Date.now(), title: "New Module", duration: "10m", content: "" }]
-                }));
+                const newLesson = {
+                    id: Date.now(),
+                    title: "New Module",
+                    content: "# New Module Content\n\nStart writing here..."
+                };
+                setCourse({ ...course, lessons: [...course.lessons, newLesson] });
             };
 
-            const removeLesson = (id) => {
-                if (!isAdmin || course.lessons.length <= 1) return;
-                setIsSaving(true);
-                setCourse(prev => ({
-                    ...prev,
-                    lessons: prev.lessons.filter(l => l.id !== id)
-                }));
+            const deleteLesson = (idx) => {
+                if (course.lessons.length <= 1) return;
+                const newLessons = course.lessons.filter((_, i) => i !== idx);
+                setCourse({ ...course, lessons: newLessons });
+                if (activeLessonIdx >= newLessons.length) {
+                    setActiveLessonIdx(Math.max(0, newLessons.length - 1));
+                }
             };
 
-            const getYouTubeEmbed = (text) => {
-                if (!text) return '*No content yet.*';
-                
-                // Enhanced Regex for YouTube variations (standard, short, embed)
-                const ytRegex = /^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:\S+)?$/gm;
-                
-                const html = text.replace(ytRegex, (match, id) => {
-                    return `<div class="video-wrapper"><iframe src="https://www.youtube.com/embed/${id}" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`;
-                });
-
-                return marked.parse(html);
-            };
-
-            if (view === 'landing') {
+            if (view === 'viewer') {
+                const currentLesson = course.lessons[activeLessonIdx];
                 return (
-                    <div className="max-w-4xl mx-auto px-6 py-12 fade-in">
-                        <header className="flex justify-between items-start mb-16">
-                            <div>
-                                <h1 className="text-4xl font-bold tracking-tight mb-2 text-slate-900">Courses</h1>
-                                <p className="text-slate-500">Curate and manage your content.</p>
-                            </div>
-                            <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 px-4 py-2 rounded-full">
-                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isAdmin ? 'text-slate-400' : 'text-slate-900'}`}>Viewer</span>
-                                <label className="flex items-center cursor-pointer relative">
-                                    <input type="checkbox" className="sr-only" checked={isAdmin} onChange={() => setIsAdmin(!isAdmin)} />
-                                    <div className="block bg-slate-200 w-10 h-6 rounded-full"></div>
-                                    <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform"></div>
-                                </label>
-                                <span className={`text-[10px] font-bold uppercase tracking-widest ${isAdmin ? 'text-emerald-600' : 'text-slate-400'}`}>Admin</span>
-                            </div>
-                        </header>
-
-                        <div className="grid gap-6">
-                            <div 
-                                onClick={() => isAdmin && setView('editor')}
-                                className={`group relative border border-slate-100 bg-white p-8 rounded-3xl transition-all ${isAdmin ? 'cursor-pointer hover:border-slate-300 hover:shadow-xl' : ''}`}
-                            >
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className="flex-1">
-                                        <h3 className="text-2xl font-bold text-slate-800 mb-1">{course.title}</h3>
-                                        <p className="text-slate-500 line-clamp-1">{course.description}</p>
-                                    </div>
-                                    <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold uppercase tracking-wider">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
-                                        Live
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex gap-4 text-xs font-medium text-slate-400">
-                                        <span className="flex items-center gap-1"><Icon name="layers" size={14} /> {course.lessons.length} Modules</span>
-                                    </div>
-                                    {isAdmin && (
-                                        <span className="text-slate-400 group-hover:text-slate-900 transition-colors flex items-center gap-1 font-medium">
-                                            Open Editor <Icon name="arrow-right" size={16} />
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-                            {isAdmin && (
-                                <button onClick={() => setView('editor')} className="py-10 border-2 border-dashed border-slate-100 rounded-3xl text-slate-400 hover:border-slate-300 transition-all flex flex-col items-center gap-2">
-                                    <Icon name="plus" size={32} />
-                                    <span className="font-medium text-sm">New Course</span>
+                    <div className="flex h-screen bg-white fade-in overflow-hidden">
+                        <aside className="w-72 border-r border-slate-100 flex flex-col bg-slate-50/30">
+                            <div className="p-6 border-b border-slate-100">
+                                <button onClick={() => setView('landing')} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 text-sm font-medium mb-4">
+                                    <Icon name="arrow-left" size={16} /> Exit
                                 </button>
-                            )}
+                                <h2 className="font-bold text-slate-900 line-clamp-1 text-sm">{course.title}</h2>
+                                <div className="mt-4 h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
+                                    <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                                </div>
+                            </div>
+                            <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+                                {course.lessons.map((l, i) => (
+                                    <button key={l.id} onClick={() => setActiveLessonIdx(i)}
+                                        className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 ${i === activeLessonIdx ? 'bg-white shadow-sm border border-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100'}`}>
+                                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${i <= activeLessonIdx ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                            {i < activeLessonIdx ? <Icon name="check" size={10} /> : i + 1}
+                                        </span>
+                                        <span className="text-xs font-semibold truncate">{l.title}</span>
+                                    </button>
+                                ))}
+                            </nav>
+                        </aside>
+
+                        <main className="flex-1 overflow-y-auto bg-white px-12 py-16 scroll-smooth">
+                            <article className="max-w-2xl mx-auto">
+                                <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(currentLesson?.content) }} />
+                                <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between">
+                                    <button disabled={activeLessonIdx === 0} onClick={() => setActiveLessonIdx(v => v - 1)} className="px-6 py-2 text-slate-400 hover:text-slate-900 disabled:opacity-0 transition-all">Previous</button>
+                                    <button onClick={() => activeLessonIdx === course.lessons.length - 1 ? setView('landing') : setActiveLessonIdx(v => v + 1)} className="px-8 py-3 bg-slate-900 text-white rounded-full font-bold hover:scale-105 transition-transform shadow-lg shadow-slate-100">
+                                        {activeLessonIdx === course.lessons.length - 1 ? 'Finish' : 'Next Lesson'}
+                                    </button>
+                                </div>
+                            </article>
+                        </main>
+
+                        <aside className="w-64 border-l border-slate-50 p-8 hidden lg:block overflow-y-auto">
+                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">On this page</h4>
+                            <ul className="space-y-4">
+                                {TOC.map((item, i) => (
+                                    <li key={i} style={{ paddingLeft: `${(item.level - 1) * 12}px` }}>
+                                        <a href={`#${item.id}`} className="text-xs font-medium text-slate-500 hover:text-emerald-600 transition-colors block leading-relaxed">
+                                            {item.text}
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </aside>
+                    </div>
+                );
+            }
+
+            if (view === 'editor') {
+                return (
+                    <div className="min-h-screen bg-slate-50">
+                        <div className="max-w-6xl mx-auto px-6 py-12 fade-in">
+                            <header className="flex justify-between items-center mb-10">
+                                <div className="flex items-center gap-6">
+                                    <button onClick={() => setView('landing')} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold text-sm">
+                                        <Icon name="chevron-left" size={18} /> BACK
+                                    </button>
+                                    <input 
+                                        value={course.title} 
+                                        onChange={(e) => { setIsSaving(true); setCourse({...course, title: e.target.value}) }}
+                                        className="text-2xl font-bold bg-transparent border-b border-transparent focus:border-slate-200 outline-none px-2"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                                        <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-orange-400 animate-pulse' : 'bg-emerald-500'}`}></div>
+                                        {isSaving ? 'Saving' : 'Saved'}
+                                    </div>
+                                    <button onClick={addLesson} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-800 transition-all">
+                                        <Icon name="plus" size={14} /> Add Module
+                                    </button>
+                                </div>
+                            </header>
+                            
+                            <div className="space-y-12">
+                                {course.lessons.map((lesson, idx) => (
+                                    <div key={lesson.id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                        <div className="bg-slate-50/50 p-6 border-b border-slate-200 flex justify-between items-center">
+                                            <input value={lesson.title} onChange={(e) => updateLesson(idx, 'title', e.target.value)} 
+                                                className="bg-transparent font-bold text-slate-700 outline-none w-full text-lg" placeholder="Module Title" />
+                                            <button onClick={() => deleteLesson(idx)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
+                                                <Icon name="trash-2" size={16} />
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 h-[450px]">
+                                            <div className="flex flex-col border-r border-slate-100">
+                                                <div className="px-6 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white">Editor (Markdown)</div>
+                                                <textarea value={lesson.content} onChange={(e) => updateLesson(idx, 'content', e.target.value)}
+                                                    className="flex-1 p-6 resize-none outline-none font-mono text-xs text-slate-500 bg-white" placeholder="# Content..." />
+                                            </div>
+                                            <div className="flex flex-col bg-slate-50/10 overflow-hidden">
+                                                <div className="px-6 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white">Preview</div>
+                                                <div className="flex-1 p-8 overflow-y-auto">
+                                                    <div className="markdown-body opacity-80" dangerouslySetInnerHTML={{ __html: renderMarkdown(lesson.content) }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className="max-w-6xl mx-auto px-6 py-12 fade-in">
-                    <header className="flex justify-between items-center mb-8">
-                        <button onClick={() => setView('landing')} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-medium">
-                            <Icon name="arrow-left" size={20} /> Dashboard
-                        </button>
-                        
-                        <div className="flex items-center gap-6">
-                            <div className="relative">
-                                <button 
-                                    onMouseEnter={() => setShowHelp(true)}
-                                    onMouseLeave={() => setShowHelp(false)}
-                                    className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-50 transition-all"
-                                >
-                                    <Icon name="info" size={20} />
-                                </button>
-                                {showHelp && (
-                                    <div className="absolute right-0 top-full mt-2 w-64 bg-slate-900 text-white p-5 rounded-2xl shadow-2xl z-50 text-[11px] leading-relaxed fade-in">
-                                        <h4 className="font-bold mb-3 text-emerald-400 border-b border-white/10 pb-1 uppercase tracking-widest">Syntax Guide</h4>
-                                        <div className="space-y-2 opacity-90 font-mono">
-                                            <p># Title 1</p>
-                                            <p>## Title 2</p>
-                                            <p>**Bold** / *Italic*</p>
-                                            <p>- Bullet points</p>
-                                            <p>`Code snippet`</p>
-                                            <div className="pt-2 text-emerald-300">VIDEO EMBED:</div>
-                                            <p className="opacity-60 text-[10px]">Paste YouTube URL on a new line</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2 text-slate-300 text-xs font-bold uppercase tracking-widest">
-                                <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-orange-400 animate-pulse' : 'bg-emerald-500'}`}></div>
-                                {isSaving ? 'Saving' : 'Saved'}
-                            </div>
+                <div className="max-w-4xl mx-auto px-6 py-12 fade-in">
+                    <header className="flex justify-between items-start mb-16">
+                        <div>
+                            <h1 className="text-4xl font-bold tracking-tight mb-2">Learning</h1>
+                            <p className="text-slate-500">Pick up where you left off.</p>
+                        </div>
+                        <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 px-4 py-2 rounded-full">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Admin Mode</span>
+                            <label className="flex items-center cursor-pointer relative">
+                                <input type="checkbox" className="sr-only" checked={isAdmin} onChange={() => setIsAdmin(!isAdmin)} />
+                                <div className="block bg-slate-200 w-10 h-6 rounded-full"></div>
+                                <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform shadow-sm"></div>
+                            </label>
                         </div>
                     </header>
-
-                    <section className="mb-12 max-w-2xl">
-                        <input 
-                            value={course.title}
-                            onChange={(e) => updateCourse('title', e.target.value)}
-                            className="editor-input text-4xl font-bold mb-2 tracking-tight"
-                            placeholder="Course Title"
-                        />
-                        <textarea 
-                            value={course.description}
-                            onChange={(e) => updateCourse('description', e.target.value)}
-                            className="editor-input text-slate-400 resize-none h-12 text-lg"
-                            placeholder="Brief description..."
-                        />
-                    </section>
-
-                    <div className="space-y-10">
-                        {course.lessons.map((lesson, index) => (
-                            <div key={lesson.id} className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-sm transition-all hover:border-slate-300">
-                                <div className="bg-slate-50/50 px-8 py-4 border-b border-slate-200 flex justify-between items-center">
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">{String(index + 1).padStart(2, '0')}</span>
-                                        <input 
-                                            value={lesson.title}
-                                            onChange={(e) => updateLesson(lesson.id, 'title', e.target.value)}
-                                            className="font-bold text-slate-700 bg-transparent outline-none text-lg tracking-tight"
-                                            placeholder="Module Name"
-                                        />
-                                    </div>
-                                    <button onClick={() => removeLesson(lesson.id)} className="text-slate-300 hover:text-red-400 transition-colors"><Icon name="trash" size={16}/></button>
-                                </div>
-                                <div className="grid grid-cols-2 min-h-[500px]">
-                                    <div className="border-r border-slate-100 p-6">
-                                        <textarea 
-                                            value={lesson.content}
-                                            onChange={(e) => updateLesson(lesson.id, 'content', e.target.value)}
-                                            className="w-full h-full resize-none outline-none font-mono text-sm text-slate-600 leading-relaxed placeholder:text-slate-200"
-                                            placeholder="# Content start..."
-                                        />
-                                    </div>
-                                    <div className="p-8 overflow-y-auto bg-slate-50/20">
-                                        <div 
-                                            className="markdown-body"
-                                            dangerouslySetInnerHTML={{ __html: getYouTubeEmbed(lesson.content) }}
-                                        />
-                                    </div>
-                                </div>
+                    <div className="group bg-white border border-slate-100 p-10 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:border-slate-200 transition-all cursor-pointer relative"
+                        onClick={() => isAdmin ? setView('editor') : setView('viewer')}>
+                        <div className="absolute top-0 right-0 p-8">
+                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all shadow-sm">
+                                <Icon name={isAdmin ? "edit-3" : "play"} size={20} />
                             </div>
-                        ))}
-                        <button onClick={addLesson} className="w-full py-6 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 font-bold text-sm hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-                            <Icon name="plus-circle" size={20} /> ADD MODULE
-                        </button>
+                        </div>
+                        <h3 className="text-3xl font-bold text-slate-900 mb-3 group-hover:text-emerald-600 transition-colors">{course.title}</h3>
+                        <p className="text-slate-500 mb-8 max-w-md">{course.description}</p>
+                        <div className="flex gap-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <span className="flex items-center gap-1.5"><Icon name="book-open" size={14}/> {course.lessons.length} Modules</span>
+                            <span className="flex items-center gap-1.5"><Icon name="clock" size={14}/> 45 Mins</span>
+                        </div>
                     </div>
                 </div>
             );
