@@ -7,32 +7,37 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #ffffff; scroll-behavior: smooth; }
-        .editor-input { border: none; background: transparent; outline: none; width: 100%; }
+        :root { --font-serif: 'Fraunces', serif; --font-sans: 'Inter', sans-serif; }
+        body { font-family: var(--font-sans); background-color: #ffffff; scroll-behavior: smooth; }
+        h1, h2, h3, .serif-heading { font-family: var(--font-serif); font-variation-settings: 'SOFT' 50, 'WONK' 1; }
+        
         textarea::-webkit-scrollbar { width: 4px; }
         textarea::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        .markdown-body { font-size: 1rem; line-height: 1.7; color: #334155; }
-        .markdown-body h1 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1.5rem; color: #0f172a; letter-spacing: -0.025em; scroll-margin-top: 2rem; }
-        .markdown-body h2 { font-size: 1.5rem; font-weight: 700; margin-top: 2rem; margin-bottom: 1rem; color: #1e293b; scroll-margin-top: 2rem; }
-        .markdown-body p { margin-bottom: 1.25rem; }
+        .markdown-body { font-size: 1.05rem; line-height: 1.8; color: #334155; }
+        .markdown-body h1 { font-size: 2.25rem; font-weight: 800; margin-bottom: 1.5rem; color: #0f172a; letter-spacing: -0.02em; scroll-margin-top: 2rem; }
+        .markdown-body h2 { font-size: 1.75rem; font-weight: 700; margin-top: 2.5rem; margin-bottom: 1rem; color: #1e293b; scroll-margin-top: 2rem; }
+        .markdown-body p { margin-bottom: 1.5rem; }
         .markdown-body code { font-family: 'JetBrains Mono', monospace; background: #f1f5f9; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.85em; }
         .markdown-body pre { background: #0f172a; color: #f8fafc; padding: 1.5rem; border-radius: 12px; overflow-x: auto; margin-bottom: 1.5rem; }
-        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1.25rem; }
+        .markdown-body ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1.5rem; }
         
         .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 16px; background: #000; margin: 2rem 0; }
         .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
 
         .dot { transition: all 0.3s ease-in-out; }
         input:checked ~ .dot { transform: translateX(100%); background-color: #10b981; }
+
+        @media (max-width: 768px) {
+            .markdown-body { font-size: 1rem; }
+            .markdown-body h1 { font-size: 1.85rem; }
+        }
     </style>
 </head>
-<body class="text-slate-900">
+<body class="text-slate-900 overflow-x-hidden">
     <div id="root"></div>
 
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -62,12 +67,13 @@
             const [view, setView] = useState('landing'); 
             const [isAdmin, setIsAdmin] = useState(false);
             const [activeLessonIdx, setActiveLessonIdx] = useState(0);
+            const [showMobileSidebar, setShowMobileSidebar] = useState(false);
             const [course, setCourse] = useState({
                 title: "Fundamentals of Design",
                 description: "Master minimalist aesthetics with practical exercises.",
                 lessons: [
-                    { id: Date.now(), title: "Getting Started", content: "# Welcome\nWatch this intro:\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n## Core Principles\nDesign is about constraints. Keep it simple.\n\n## Learning Path\nFollow the sidebar to navigate." },
-                    { id: Date.now() + 1, title: "Typography", content: "# Type Basics\nUse clean sans-serif fonts for UI.\n\n## Recommended Fonts\n- Inter\n- Roboto\n- Helvetica\n\n## Why Typography Matters\nIt's the foundation of clarity." }
+                    { id: 1, title: "Getting Started", content: "# Welcome\nWatch this intro:\n\nhttps://www.youtube.com/watch?v=dQw4w9WgXcQ\n\n## Core Principles\nDesign is about constraints. Keep it simple.\n\n## Learning Path\nFollow the sidebar to navigate." },
+                    { id: 2, title: "Typography", content: "# Type Basics\nUse clean sans-serif fonts for UI.\n\n## Recommended Fonts\n- Inter\n- Roboto\n- Helvetica\n\n## Why Typography Matters\nIt's the foundation of clarity." }
                 ]
             });
             const [isSaving, setIsSaving] = useState(false);
@@ -86,8 +92,7 @@
 
             const TOC = useMemo(() => {
                 const currentLesson = course.lessons[activeLessonIdx];
-                if (!currentLesson || !currentLesson.content) return [];
-                
+                if (!currentLesson?.content) return [];
                 const lines = currentLesson.content.split('\n');
                 return lines
                     .filter(line => line.trim().startsWith('#'))
@@ -99,7 +104,7 @@
                         const id = text.toLowerCase().replace(/[^\w]+/g, '-');
                         return { text, level, id };
                     })
-                    .filter(item => item !== null);
+                    .filter(Boolean);
             }, [activeLessonIdx, course.lessons]);
 
             const renderMarkdown = (text) => {
@@ -108,16 +113,12 @@
                 const filteredText = text.replace(ytRegex, (match, id) => {
                     return `<div class="video-wrapper"><iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe></div>`;
                 });
-                
                 const renderer = new marked.Renderer();
                 renderer.heading = (text, level) => {
-                    // text can be an object in some versions of marked, ensure it's stringified
-                    const rawText = typeof text === 'object' ? text.text : text;
-                    const cleanText = String(rawText || '');
+                    const cleanText = String(typeof text === 'object' ? text.text : text || '');
                     const id = cleanText.toLowerCase().replace(/[^\w]+/g, '-');
-                    return `<h${level} id="${id}">${cleanText}</h${level}>`;
+                    return `<h${level} id="${id}" class="serif-heading">${cleanText}</h${level}>`;
                 };
-                
                 return marked.parse(filteredText, { renderer });
             };
 
@@ -129,163 +130,143 @@
             };
 
             const addLesson = () => {
-                const newLesson = {
-                    id: Date.now(),
-                    title: "New Module",
-                    content: "# New Module Content\n\nStart writing here..."
-                };
-                setCourse({ ...course, lessons: [...course.lessons, newLesson] });
+                setCourse({ ...course, lessons: [...course.lessons, { id: Date.now(), title: "New Module", content: "# New Module\nContent here..." }] });
             };
 
             const deleteLesson = (idx) => {
                 if (course.lessons.length <= 1) return;
                 const newLessons = course.lessons.filter((_, i) => i !== idx);
                 setCourse({ ...course, lessons: newLessons });
-                if (activeLessonIdx >= newLessons.length) {
-                    setActiveLessonIdx(Math.max(0, newLessons.length - 1));
-                }
+                setActiveLessonIdx(Math.min(activeLessonIdx, newLessons.length - 1));
             };
 
             if (view === 'viewer') {
                 const currentLesson = course.lessons[activeLessonIdx];
                 return (
-                    <div className="flex h-screen bg-white fade-in overflow-hidden">
-                        <aside className="w-72 border-r border-slate-100 flex flex-col bg-slate-50/30">
-                            <div className="p-6 border-b border-slate-100">
-                                <button onClick={() => setView('landing')} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 text-sm font-medium mb-4">
-                                    <Icon name="arrow-left" size={16} /> Exit
-                                </button>
-                                <h2 className="font-bold text-slate-900 line-clamp-1 text-sm">{course.title}</h2>
-                                <div className="mt-4 h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-                                    <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                    <div className="flex flex-col md:flex-row h-screen bg-white overflow-hidden relative">
+                        {/* Sidebar */}
+                        <aside className={`fixed inset-0 z-50 transform ${showMobileSidebar ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 md:w-72 md:z-auto transition-transform duration-300 bg-slate-50 border-r border-slate-100 flex flex-col`}>
+                            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+                                <div>
+                                    <button onClick={() => setView('landing')} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 text-xs font-bold mb-3">
+                                        <Icon name="arrow-left" size={14} /> EXIT
+                                    </button>
+                                    <h2 className="font-bold text-slate-900 text-sm">{course.title}</h2>
                                 </div>
+                                <button className="md:hidden p-2 text-slate-400" onClick={() => setShowMobileSidebar(false)}>
+                                    <Icon name="x" size={20} />
+                                </button>
                             </div>
                             <nav className="flex-1 overflow-y-auto p-4 space-y-1">
                                 {course.lessons.map((l, i) => (
-                                    <button key={l.id} onClick={() => setActiveLessonIdx(i)}
-                                        className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 ${i === activeLessonIdx ? 'bg-white shadow-sm border border-slate-200 text-slate-900' : 'text-slate-500 hover:bg-slate-100'}`}>
-                                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${i <= activeLessonIdx ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                                            {i < activeLessonIdx ? <Icon name="check" size={10} /> : i + 1}
+                                    <button key={l.id} onClick={() => { setActiveLessonIdx(i); setShowMobileSidebar(false); }}
+                                        className={`w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 ${i === activeLessonIdx ? 'bg-white shadow-sm border border-slate-200 text-slate-900 font-semibold' : 'text-slate-500'}`}>
+                                        <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] ${i <= activeLessonIdx ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-200 text-slate-400'}`}>
+                                            {i < activeLessonIdx ? <Icon name="check" size={12} /> : i + 1}
                                         </span>
-                                        <span className="text-xs font-semibold truncate">{l.title}</span>
+                                        <span className="text-xs truncate">{l.title}</span>
                                     </button>
                                 ))}
                             </nav>
                         </aside>
 
-                        <main className="flex-1 overflow-y-auto bg-white px-12 py-16 scroll-smooth">
-                            <article className="max-w-2xl mx-auto">
-                                <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(currentLesson?.content) }} />
-                                <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between">
-                                    <button disabled={activeLessonIdx === 0} onClick={() => setActiveLessonIdx(v => v - 1)} className="px-6 py-2 text-slate-400 hover:text-slate-900 disabled:opacity-0 transition-all">Previous</button>
-                                    <button onClick={() => activeLessonIdx === course.lessons.length - 1 ? setView('landing') : setActiveLessonIdx(v => v + 1)} className="px-8 py-3 bg-slate-900 text-white rounded-full font-bold hover:scale-105 transition-transform shadow-lg shadow-slate-100">
-                                        {activeLessonIdx === course.lessons.length - 1 ? 'Finish' : 'Next Lesson'}
-                                    </button>
-                                </div>
-                            </article>
-                        </main>
-
-                        <aside className="w-64 border-l border-slate-50 p-8 hidden lg:block overflow-y-auto">
-                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">On this page</h4>
-                            <ul className="space-y-4">
-                                {TOC.map((item, i) => (
-                                    <li key={i} style={{ paddingLeft: `${(item.level - 1) * 12}px` }}>
-                                        <a href={`#${item.id}`} className="text-xs font-medium text-slate-500 hover:text-emerald-600 transition-colors block leading-relaxed">
-                                            {item.text}
-                                        </a>
-                                    </li>
-                                ))}
-                            </ul>
-                        </aside>
+                        {/* Content Area */}
+                        <div className="flex-1 flex flex-col h-full relative">
+                            <header className="md:hidden flex items-center justify-between p-4 border-b border-slate-100 bg-white sticky top-0 z-40">
+                                <button onClick={() => setShowMobileSidebar(true)} className="p-2"><Icon name="menu" /></button>
+                                <div className="text-xs font-bold uppercase tracking-widest text-slate-400">Lesson {activeLessonIdx + 1}</div>
+                                <div className="w-8"></div>
+                            </header>
+                            
+                            <main className="flex-1 overflow-y-auto px-6 md:px-16 py-10 md:py-20 scroll-smooth">
+                                <article className="max-w-2xl mx-auto pb-24">
+                                    <div className="h-1.5 w-full bg-slate-100 rounded-full mb-12 md:hidden">
+                                        <div className="h-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }}></div>
+                                    </div>
+                                    <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(currentLesson?.content) }} />
+                                    
+                                    <div className="mt-16 pt-8 border-t border-slate-100 flex flex-col sm:flex-row gap-4 justify-between">
+                                        <button disabled={activeLessonIdx === 0} onClick={() => setActiveLessonIdx(v => v - 1)} 
+                                            className="px-6 py-3 text-slate-400 hover:text-slate-900 disabled:opacity-0 transition-all text-sm font-semibold text-center">Previous</button>
+                                        <button onClick={() => activeLessonIdx === course.lessons.length - 1 ? setView('landing') : setActiveLessonIdx(v => v + 1)} 
+                                            className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-slate-200 text-center">
+                                            {activeLessonIdx === course.lessons.length - 1 ? 'Complete Course' : 'Next Module'}
+                                        </button>
+                                    </div>
+                                </article>
+                            </main>
+                        </div>
                     </div>
                 );
             }
 
             if (view === 'editor') {
                 return (
-                    <div className="min-h-screen bg-slate-50">
-                        <div className="max-w-6xl mx-auto px-6 py-12 fade-in">
-                            <header className="flex justify-between items-center mb-10">
-                                <div className="flex items-center gap-6">
-                                    <button onClick={() => setView('landing')} className="flex items-center gap-2 text-slate-400 hover:text-slate-900 font-bold text-sm">
-                                        <Icon name="chevron-left" size={18} /> BACK
-                                    </button>
-                                    <input 
-                                        value={course.title} 
-                                        onChange={(e) => { setIsSaving(true); setCourse({...course, title: e.target.value}) }}
-                                        className="text-2xl font-bold bg-transparent border-b border-transparent focus:border-slate-200 outline-none px-2"
-                                    />
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-2 text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-                                        <div className={`w-2 h-2 rounded-full ${isSaving ? 'bg-orange-400 animate-pulse' : 'bg-emerald-500'}`}></div>
-                                        {isSaving ? 'Saving' : 'Saved'}
-                                    </div>
-                                    <button onClick={addLesson} className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-xs font-bold hover:bg-slate-800 transition-all">
-                                        <Icon name="plus" size={14} /> Add Module
-                                    </button>
-                                </div>
-                            </header>
-                            
-                            <div className="space-y-12">
-                                {course.lessons.map((lesson, idx) => (
-                                    <div key={lesson.id} className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="bg-slate-50/50 p-6 border-b border-slate-200 flex justify-between items-center">
-                                            <input value={lesson.title} onChange={(e) => updateLesson(idx, 'title', e.target.value)} 
-                                                className="bg-transparent font-bold text-slate-700 outline-none w-full text-lg" placeholder="Module Title" />
-                                            <button onClick={() => deleteLesson(idx)} className="p-2 text-slate-300 hover:text-red-500 transition-colors">
-                                                <Icon name="trash-2" size={16} />
-                                            </button>
-                                        </div>
-                                        <div className="grid grid-cols-2 h-[450px]">
-                                            <div className="flex flex-col border-r border-slate-100">
-                                                <div className="px-6 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white">Editor (Markdown)</div>
-                                                <textarea value={lesson.content} onChange={(e) => updateLesson(idx, 'content', e.target.value)}
-                                                    className="flex-1 p-6 resize-none outline-none font-mono text-xs text-slate-500 bg-white" placeholder="# Content..." />
-                                            </div>
-                                            <div className="flex flex-col bg-slate-50/10 overflow-hidden">
-                                                <div className="px-6 py-2 border-b border-slate-50 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white">Preview</div>
-                                                <div className="flex-1 p-8 overflow-y-auto">
-                                                    <div className="markdown-body opacity-80" dangerouslySetInnerHTML={{ __html: renderMarkdown(lesson.content) }} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
+                    <div className="min-h-screen bg-slate-50 flex flex-col">
+                        <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div className="flex items-center gap-4 w-full sm:w-auto">
+                                <button onClick={() => setView('landing')} className="p-2 text-slate-400"><Icon name="arrow-left" /></button>
+                                <input value={course.title} onChange={e => { setIsSaving(true); setCourse({...course, title: e.target.value}); }}
+                                    className="bg-transparent font-bold text-xl outline-none focus:text-emerald-600 transition-colors w-full" />
                             </div>
+                            <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSaving ? 'Saving...' : 'All Changes Saved'}</div>
+                                <button onClick={addLesson} className="bg-slate-900 text-white px-6 py-2 rounded-full text-xs font-bold shadow-lg shadow-slate-200">Add Module</button>
+                            </div>
+                        </header>
+                        
+                        <div className="max-w-5xl mx-auto w-full px-6 py-12 space-y-12">
+                            {course.lessons.map((lesson, idx) => (
+                                <div key={lesson.id} className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
+                                    <div className="p-6 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                        <input value={lesson.title} onChange={e => updateLesson(idx, 'title', e.target.value)} 
+                                            className="bg-transparent font-bold text-slate-700 outline-none w-full" />
+                                        <button onClick={() => deleteLesson(idx)} className="text-slate-300 hover:text-red-500 transition-colors px-2"><Icon name="trash-2" size={16} /></button>
+                                    </div>
+                                    <div className="flex flex-col lg:flex-row h-auto lg:h-[500px]">
+                                        <textarea value={lesson.content} onChange={e => updateLesson(idx, 'content', e.target.value)}
+                                            className="flex-1 p-8 min-h-[300px] outline-none font-mono text-xs leading-relaxed text-slate-600 border-b lg:border-b-0 lg:border-r border-slate-100" />
+                                        <div className="flex-1 p-8 bg-slate-50/30 overflow-y-auto">
+                                            <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(lesson.content) }} />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 );
             }
 
             return (
-                <div className="max-w-4xl mx-auto px-6 py-12 fade-in">
-                    <header className="flex justify-between items-start mb-16">
+                <div className="max-w-4xl mx-auto px-6 py-12 md:py-24 fade-in">
+                    <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-16">
                         <div>
-                            <h1 className="text-4xl font-bold tracking-tight mb-2">Learning</h1>
-                            <p className="text-slate-500">Pick up where you left off.</p>
+                            <h1 className="text-5xl font-extrabold tracking-tight mb-2 serif-heading">Academy</h1>
+                            <p className="text-slate-400 font-medium">Continue your learning journey.</p>
                         </div>
-                        <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 px-4 py-2 rounded-full">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Admin Mode</span>
+                        <div className="flex items-center gap-3 bg-slate-50 px-5 py-2.5 rounded-2xl border border-slate-100">
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Builder Mode</span>
                             <label className="flex items-center cursor-pointer relative">
                                 <input type="checkbox" className="sr-only" checked={isAdmin} onChange={() => setIsAdmin(!isAdmin)} />
                                 <div className="block bg-slate-200 w-10 h-6 rounded-full"></div>
-                                <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform shadow-sm"></div>
+                                <div className="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full shadow-sm"></div>
                             </label>
                         </div>
                     </header>
-                    <div className="group bg-white border border-slate-100 p-10 rounded-[2.5rem] shadow-sm hover:shadow-2xl hover:border-slate-200 transition-all cursor-pointer relative"
+                    
+                    <div className="group bg-white border border-slate-200 p-8 md:p-12 rounded-[3rem] shadow-sm hover:shadow-2xl transition-all cursor-pointer relative"
                         onClick={() => isAdmin ? setView('editor') : setView('viewer')}>
-                        <div className="absolute top-0 right-0 p-8">
-                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center group-hover:bg-slate-900 group-hover:text-white transition-all shadow-sm">
-                                <Icon name={isAdmin ? "edit-3" : "play"} size={20} />
+                        <div className="md:absolute md:top-0 md:right-0 md:p-12 mb-8 md:mb-0">
+                            <div className="w-14 h-14 bg-slate-900 text-white rounded-3xl flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-500 transition-all shadow-xl shadow-slate-200">
+                                <Icon name={isAdmin ? "edit-3" : "play"} size={24} />
                             </div>
                         </div>
-                        <h3 className="text-3xl font-bold text-slate-900 mb-3 group-hover:text-emerald-600 transition-colors">{course.title}</h3>
-                        <p className="text-slate-500 mb-8 max-w-md">{course.description}</p>
-                        <div className="flex gap-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            <span className="flex items-center gap-1.5"><Icon name="book-open" size={14}/> {course.lessons.length} Modules</span>
-                            <span className="flex items-center gap-1.5"><Icon name="clock" size={14}/> 45 Mins</span>
+                        <h3 className="text-3xl md:text-4xl font-bold mb-4 serif-heading group-hover:text-emerald-600 transition-colors">{course.title}</h3>
+                        <p className="text-slate-500 mb-10 max-w-md leading-relaxed">{course.description}</p>
+                        <div className="flex flex-wrap gap-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-50 pt-8">
+                            <span className="flex items-center gap-2"><Icon name="book-open" size={14}/> {course.lessons.length} Modules</span>
+                            <span className="flex items-center gap-2"><Icon name="clock" size={14}/> 45 Mins</span>
+                            <span className="flex items-center gap-2 text-emerald-500"><Icon name="award" size={14}/> Certificate</span>
                         </div>
                     </div>
                 </div>
